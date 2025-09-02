@@ -156,7 +156,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
       // Mark table as occupied if it's a table order
       if (currentOrder.orderType === "table" && currentOrder.tableNumber) {
-        // Update table occupation status
+        // Update table occupation status - OCCUPIED when sent to kitchen
         await updateTableOccupationMutation({
           tableNumber: currentOrder.tableNumber,
           isOccupied: true,
@@ -201,12 +201,12 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
       await sendToBillingMutation({ orderId });
 
-      // Mark table as occupied if it's a table order
+      // Mark table as free if it's a table order
       if (currentOrder.orderType === "table" && currentOrder.tableNumber) {
-        // Update table occupation status
+        // Update table occupation status - FREE when sent to billing
         await updateTableOccupationMutation({
           tableNumber: currentOrder.tableNumber,
-          isOccupied: true,
+          isOccupied: false,
           orderId: orderId
         });
       }
@@ -381,7 +381,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
           {/* Main Content - Responsive Layout */}
           <div className="flex flex-col lg:flex-row h-full overflow-hidden">
             {/* Left Side - Current Order - Mobile First */}
-            <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r bg-gray-50 flex flex-col min-h-0">
+            <div className="w-full lg:w-2/5 xl:w-1/3 border-b lg:border-b-0 lg:border-r bg-gray-50 flex flex-col min-h-0">
               <div className="p-3 sm:p-4 border-b bg-white">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
                   <ShoppingCart className="h-4 w-4" />
@@ -527,7 +527,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                     <p className="text-gray-400 text-xs mt-1">Try searching for something else</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3 lg:gap-4">
                     {filteredMenuItems.map((item) => (
                       <Card 
                         key={item._id} 
