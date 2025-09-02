@@ -234,54 +234,85 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
   };
 
   const sendToBilling = async () => {
-    if (selectedTable && tableOrders.has(selectedTable)) {
-      // Send all accumulated orders for this table to billing
-      const tableOrder = tableOrders.get(selectedTable)!;
+    if (selectedTable) {
+      // For table orders, check if there are current items or if table is occupied
+      const tableOrder = tableOrders.get(selectedTable);
+      const hasCurrentItems = currentOrder.length > 0;
+      const hasTableOrder = tableOrder && tableOrder.items.length > 0;
       
-      try {
-        const orderId = await createOrderMutation({
-          tableNumber: selectedTable,
-          orderType: "table",
-          items: tableOrder.items.map(item => ({
-            menuItemId: item.menuItemId,
-            menuItemName: item.menuItemName,
-            quantity: item.quantity,
-            price: item.price
-          })),
-          waiterId: currentUser?._id,
-          waiterName: currentUser?.name || "Current Waiter"
-        });
-
-        await sendToBillingMutation({ orderId });
-
-        // Mark table as free
-        await updateTableOccupationMutation({
-          tableNumber: selectedTable,
-          isOccupied: false,
-          orderId: orderId
-        });
-
-        // Remove table order from local state
-        setTableOrders(prev => {
-          const newMap = new Map(prev);
-          newMap.delete(selectedTable);
-          return newMap;
-        });
-
-        // Clear current order and close modal
-        setCurrentOrder([]);
-        setSelectedTable(null);
+      if (hasCurrentItems || hasTableOrder) {
+        // Send current order or accumulated table order to billing
+        const itemsToSend = hasCurrentItems ? currentOrder : (tableOrder?.items || []);
         
-        if (isMobile) {
-          setShowMobileModal(false);
-        } else {
-          setShowPCModal(false);
-        }
+        try {
+          const orderId = await createOrderMutation({
+            tableNumber: selectedTable,
+            orderType: "table",
+            items: itemsToSend.map(item => ({
+              menuItemId: item.menuItemId,
+              menuItemName: item.menuItemName,
+              quantity: item.quantity,
+              price: item.price
+            })),
+            waiterId: currentUser?._id,
+            waiterName: currentUser?.name || "Current Waiter"
+          });
 
-        alert("Table order sent to billing and table cleared!");
-      } catch (error) {
-        console.error("Error sending to billing:", error);
-        alert("Failed to send to billing");
+          await sendToBillingMutation({ orderId });
+
+          // Mark table as free
+          await updateTableOccupationMutation({
+            tableNumber: selectedTable,
+            isOccupied: false,
+            orderId: orderId
+          });
+
+          // Remove table order from local state
+          setTableOrders(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(selectedTable);
+            return newMap;
+          });
+
+          // Clear current order and close modal
+          setCurrentOrder([]);
+          setSelectedTable(null);
+          
+          if (isMobile) {
+            setShowMobileModal(false);
+          } else {
+            setShowPCModal(false);
+          }
+
+          alert("Table order sent to billing and table cleared!");
+        } catch (error) {
+          console.error("Error sending to billing:", error);
+          alert("Failed to send to billing");
+        }
+      } else {
+        // No items to send, just clear the table occupation
+        try {
+          await updateTableOccupationMutation({
+            tableNumber: selectedTable,
+            isOccupied: false,
+            orderId: undefined
+          });
+
+          // Clear current order and close modal
+          setCurrentOrder([]);
+          setSelectedTable(null);
+          
+          if (isMobile) {
+            setShowMobileModal(false);
+          } else {
+            setShowPCModal(false);
+          }
+
+          alert("Table cleared (no items to bill)!");
+        } catch (error) {
+          console.error("Error clearing table:", error);
+          alert("Failed to clear table");
+        }
       }
     } else if (currentOrder.length > 0) {
       // Send current parcel order to billing
@@ -514,7 +545,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                 </Button>
                 <Button
                   onClick={sendToBilling}
-                  disabled={currentOrder.length === 0}
+                  disabled={selectedTable ? false : currentOrder.length === 0}
                   variant="outline"
                   className="flex-1"
                 >
@@ -643,7 +674,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                 </Button>
                 <Button
                   onClick={sendToBilling}
-                  disabled={currentOrder.length === 0}
+                  disabled={selectedTable ? false : currentOrder.length === 0}
                   variant="outline"
                   className="w-full"
                   size="lg"

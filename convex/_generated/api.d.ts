@@ -16,6 +16,7 @@ import type {
 import type * as auth from "../auth.js";
 import type * as bills from "../bills.js";
 import type * as menu from "../menu.js";
+import type * as migrations from "../migrations.js";
 import type * as orders from "../orders.js";
 import type * as seedData from "../seedData.js";
 import type * as tables from "../tables.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   bills: typeof bills;
   menu: typeof menu;
+  migrations: typeof migrations;
   orders: typeof orders;
   seedData: typeof seedData;
   tables: typeof tables;
