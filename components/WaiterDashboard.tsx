@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Plus,
   Minus,
@@ -15,9 +13,10 @@ import {
   Users,
   ShoppingCart,
   Bluetooth,
-  Printer,
-  Check,
-  Clock
+  Clock,
+  Eye,
+  Search,
+  X
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -61,8 +60,9 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
     items: [],
     total: 0
   });
-  const [showOrderDialog, setShowOrderDialog] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
   const [printerConnected, setPrinterConnected] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Convex queries and mutations
   const tables = useQuery(api.tables.getTables);
@@ -78,6 +78,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
       tableNumber, 
       orderType: "table" 
     }));
+    setShowOrderModal(true);
   };
 
   const selectParcel = () => {
@@ -87,9 +88,10 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
       tableNumber: null, 
       orderType: "parcel" 
     }));
+    setShowOrderModal(true);
   };
 
-  const addItemToOrder = (menuItem: any) => {
+  const addItemToOrder = (menuItem: { _id: string; name: string; price: number }) => {
     setCurrentOrder(prev => {
       const existingItem = prev.items.find(item => item.menuItemId === menuItem._id);
       let newItems;
@@ -137,7 +139,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
         tableNumber: currentOrder.tableNumber || undefined,
         orderType: currentOrder.orderType,
         items: currentOrder.items.map(item => ({
-          menuItemId: item.menuItemId as any,
+          menuItemId: item.menuItemId,
           menuItemName: item.menuItemName,
           quantity: item.quantity,
           price: item.price
@@ -158,7 +160,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
         total: 0
       });
       setSelectedTable(null);
-      setShowOrderDialog(false);
+      setShowOrderModal(false);
 
       alert(`${currentOrder.orderType === "parcel" ? "Parcel order" : "Table order"} sent to kitchen!`);
     } catch (error) {
@@ -175,7 +177,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
         tableNumber: currentOrder.tableNumber || undefined,
         orderType: currentOrder.orderType,
         items: currentOrder.items.map(item => ({
-          menuItemId: item.menuItemId as any,
+          menuItemId: item.menuItemId,
           menuItemName: item.menuItemName,
           quantity: item.quantity,
           price: item.price
@@ -195,7 +197,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
         total: 0
       });
       setSelectedTable(null);
-      setShowOrderDialog(false);
+      setShowOrderModal(false);
 
       alert(`${currentOrder.orderType === "parcel" ? "Parcel order" : "Table order"} sent to billing!`);
     } catch (error) {
@@ -208,13 +210,13 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
     try {
       if ('bluetooth' in navigator) {
         // Web Bluetooth API - more permissive filter for thermal printers
-        const device = await (navigator as any).bluetooth.requestDevice({
+        const device = await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: ['00001800-0000-1000-8000-00805f9b34fb', '0000180f-0000-1000-8000-00805f9b34fb']
         });
         
         // Connect to the device
-        const server = await device.gatt?.connect();
+        const server = await (device as { gatt?: { connect: () => Promise<unknown> } }).gatt?.connect();
         if (server) {
           setPrinterConnected(true);
           alert("Kitchen printer connected successfully!");
@@ -233,6 +235,24 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
       }
     }
   };
+
+  const closeOrderModal = () => {
+    setShowOrderModal(false);
+    setCurrentOrder({
+      tableNumber: null,
+      orderType: "table",
+      items: [],
+      total: 0
+    });
+    setSelectedTable(null);
+    setSearchTerm("");
+  };
+
+  // Filter menu items based on search
+  const filteredMenuItems = menuItems?.filter(item =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.category.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
   return (
     <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 pt-16 lg:pt-6">
@@ -310,124 +330,218 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
         </CardContent>
       </Card>
 
-      {/* Current Order */}
-      {(selectedTable || currentOrder.orderType === "parcel") && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
-              Current Order - {currentOrder.orderType === "parcel" ? "Parcel" : `Table ${selectedTable}`}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {currentOrder.items.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No items added yet</p>
-            ) : (
-              <div className="space-y-2">
-                {currentOrder.items.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <div>
-                      <span className="font-medium">{item.menuItemName}</span>
-                      <span className="text-gray-600 ml-2">₹{item.price}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => removeItemFromOrder(item.menuItemId)}
-                      >
-                        <Minus className="h-3 w-3" />
+      {/* Order Modal */}
+      <Dialog open={showOrderModal} onOpenChange={setShowOrderModal}>
+        <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b bg-white">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <ShoppingCart className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {currentOrder.orderType === "parcel" ? "Parcel Order" : `Table ${selectedTable}`}
+                </h2>
+                <p className="text-sm text-gray-500">Add items and manage your order</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={closeOrderModal}>
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left Side - Current Order */}
+            <div className="w-1/3 border-r bg-gray-50 flex flex-col">
+              <div className="p-4 border-b bg-white">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4" />
+                  Current Order ({currentOrder.items.length} items)
+                </h3>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4">
+                {currentOrder.items.length === 0 ? (
+                  <div className="text-center py-12">
+                    <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 text-sm">No items added yet</p>
+                    <p className="text-gray-400 text-xs mt-1">Browse menu to add items</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {currentOrder.items.map((item, index) => (
+                      <div key={index} className="bg-white rounded-lg p-3 shadow-sm border">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-sm text-gray-900">{item.menuItemName}</h4>
+                            <p className="text-xs text-gray-500">₹{item.price} each</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0"
+                              onClick={() => removeItemFromOrder(item.menuItemId)}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0"
+                              onClick={() => {
+                                const menuItem = menuItems?.find(m => m._id === item.menuItemId);
+                                if (menuItem) addItemToOrder(menuItem);
+                              }}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <span className="font-semibold text-sm">₹{item.price * item.quantity}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Order Summary */}
+              <div className="p-4 border-t bg-white space-y-4">
+                <div className="flex justify-between items-center text-lg font-bold">
+                  <span>Total:</span>
+                  <span className="text-blue-600">₹{currentOrder.total}</span>
+                </div>
+                
+                <div className="grid grid-cols-1 gap-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full">
+                        <Eye className="h-4 w-4 mr-2" />
+                        Preview Receipt
                       </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const menuItem = menuItems?.find(m => m._id === item.menuItemId);
-                          if (menuItem) addItemToOrder(menuItem);
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Order Preview</DialogTitle>
+                      </DialogHeader>
+                      <ReceiptPreview
+                        type="order"
+                        data={{
+                          tableNumber: currentOrder.tableNumber || 0,
+                          orderType: currentOrder.orderType,
+                          items: currentOrder.items,
+                          total: currentOrder.total,
+                          date: new Date().toLocaleString()
                         }}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <span className="ml-4 font-medium">₹{item.price * item.quantity}</span>
-                    </div>
-                  </div>
-                ))}
-                <Separator />
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
-                  <span className="text-lg font-bold">Total: ₹{currentOrder.total}</span>
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full sm:w-auto">Preview</Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Order Preview</DialogTitle>
-                        </DialogHeader>
-                        <ReceiptPreview
-                          type="order"
-                          data={{
-                            tableNumber: currentOrder.tableNumber || 0,
-                            orderType: currentOrder.orderType,
-                            items: currentOrder.items,
-                            total: currentOrder.total,
-                            date: new Date().toLocaleString()
-                          }}
-                        />
-                      </DialogContent>
-                    </Dialog>
-                    <Button onClick={createOrder} className="flex items-center gap-2 text-sm w-full sm:w-auto" size="sm">
-                      <Send className="h-4 w-4" />
-                      <span className="hidden sm:inline">Send to Kitchen</span>
-                      <span className="sm:hidden">Kitchen</span>
-                    </Button>
-                    <Button onClick={sendToBilling} variant="secondary" className="flex items-center gap-2 text-sm w-full sm:w-auto" size="sm">
-                      <Clock className="h-4 w-4" />
-                      <span className="hidden sm:inline">Send to Billing</span>
-                      <span className="sm:hidden">Billing</span>
-                    </Button>
-                  </div>
+                      />
+                    </DialogContent>
+                  </Dialog>
+                  
+                  <Button 
+                    onClick={createOrder} 
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={currentOrder.items.length === 0}
+                    size="sm"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Send to Kitchen
+                  </Button>
+                  
+                  <Button 
+                    onClick={sendToBilling} 
+                    variant="secondary" 
+                    className="w-full"
+                    disabled={currentOrder.items.length === 0}
+                    size="sm"
+                  >
+                    <Clock className="h-4 w-4 mr-2" />
+                    Send to Billing
+                  </Button>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </div>
 
-      {/* Menu Items */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Menu Items</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 lg:gap-4">
-            {menuItems?.map((item) => (
-              <Card key={item._id} className="cursor-pointer hover:shadow-md transition-shadow">
-                <CardContent className="p-3 lg:p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-medium text-sm lg:text-base">{item.name}</h3>
-                    <Badge variant={item.isAvailable ? "default" : "secondary"} className="text-xs">
-                      {item.isAvailable ? "Available" : "Out of Stock"}
-                    </Badge>
-                  </div>
-                  <p className="text-xs lg:text-sm text-gray-600 mb-2">{item.category}</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-base lg:text-lg font-bold">₹{item.price}</span>
+            {/* Right Side - Menu Items */}
+            <div className="flex-1 flex flex-col">
+              {/* Search Bar */}
+              <div className="p-4 border-b bg-white">
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Search menu items..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4"
+                  />
+                  {searchTerm && (
                     <Button
+                      variant="ghost"
                       size="sm"
-                      onClick={() => addItemToOrder(item)}
-                      disabled={(!selectedTable && currentOrder.orderType !== "parcel") || !item.isAvailable}
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                      onClick={() => setSearchTerm("")}
                     >
-                      <Plus className="h-3 w-3" />
+                      <X className="h-3 w-3" />
                     </Button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Menu Items Grid */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {filteredMenuItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No items found</p>
+                    <p className="text-gray-400 text-sm mt-1">Try searching for something else</p>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                ) : (
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredMenuItems.map((item) => (
+                      <Card 
+                        key={item._id} 
+                        className={`cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] ${
+                          !item.isAvailable ? 'opacity-60' : ''
+                        }`}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-medium text-sm text-gray-900 leading-tight">{item.name}</h4>
+                            <Badge 
+                              variant={item.isAvailable ? "default" : "secondary"} 
+                              className="text-xs ml-2 flex-shrink-0"
+                            >
+                              {item.isAvailable ? "Available" : "Out"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-3">{item.category}</p>
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-blue-600">₹{item.price}</span>
+                            <Button
+                              size="sm"
+                              onClick={() => addItemToOrder(item)}
+                              disabled={!item.isAvailable}
+                              className="h-8 px-3"
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
+
+
     </div>
   );
 }

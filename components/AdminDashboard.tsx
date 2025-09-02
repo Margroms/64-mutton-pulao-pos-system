@@ -5,16 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Receipt,
   CreditCard,
   Printer,
   Eye,
-  CheckCircle,
   XCircle,
   Bluetooth,
   DollarSign,
@@ -37,49 +34,20 @@ interface AdminDashboardProps {
   currentUser: User | null;
 }
 
-export function AdminDashboard({ currentUser }: AdminDashboardProps) {
-  const [selectedBill, setSelectedBill] = useState<any>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>("");
-  const [customerInfo, setCustomerInfo] = useState({
-    name: "",
-    phone: "",
-    email: ""
-  });
+export function AdminDashboard({ }: AdminDashboardProps) {
   const [printerConnected, setPrinterConnected] = useState(false);
 
   // Convex queries and mutations
   const pendingBills = useQuery(api.bills.getPendingBills);
   const allBills = useQuery(api.bills.getAllBills);
-  const processBillPaymentMutation = useMutation(api.bills.processBillPayment);
   const printAndClearBillMutation = useMutation(api.bills.printAndClearBill);
   const cancelBillMutation = useMutation(api.bills.cancelBill);
 
-  const processBill = async (billId: string) => {
-    if (!paymentMethod) {
-      alert("Please select a payment method");
-      return;
-    }
 
-    try {
-      await processBillPaymentMutation({
-        billId: billId as any,
-        paymentMethod,
-        customerInfo: customerInfo.name || customerInfo.phone || customerInfo.email ? customerInfo : undefined
-      });
-
-      alert("Bill processed successfully!");
-      setSelectedBill(null);
-      setPaymentMethod("");
-      setCustomerInfo({ name: "", phone: "", email: "" });
-    } catch (error) {
-      console.error("Error processing bill:", error);
-      alert("Failed to process bill");
-    }
-  };
 
   const cancelBill = async (billId: string) => {
     try {
-      await cancelBillMutation({ billId: billId as any });
+      await cancelBillMutation({ billId });
       alert("Bill cancelled successfully!");
     } catch (error) {
       console.error("Error cancelling bill:", error);
@@ -90,7 +58,7 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
   const connectToPrinter = async () => {
     try {
       if ('bluetooth' in navigator) {
-        const device = await (navigator as any).bluetooth.requestDevice({
+        await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
           filters: [{ services: ['00001800-0000-1000-8000-00805f9b34fb'] }]
         });
         setPrinterConnected(true);
@@ -104,7 +72,7 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
     }
   };
 
-  const printAndClearBill = async (bill: any, paymentMethod: string = "cash") => {
+  const printAndClearBill = async (bill: { _id: string }, paymentMethod: string = "cash") => {
     if (!printerConnected) {
       alert("Please connect to printer first");
       return;
@@ -167,7 +135,7 @@ export function AdminDashboard({ currentUser }: AdminDashboardProps) {
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 lg:h-5 w-4 lg:w-5 text-green-600" />
               <div>
-                <p className="text-xs lg:text-sm text-gray-600">Today's Revenue</p>
+                <p className="text-xs lg:text-sm text-gray-600">Today&apos;s Revenue</p>
                 <p className="text-lg lg:text-xl font-bold">₹{todaysRevenue.toFixed(2)}</p>
               </div>
             </div>

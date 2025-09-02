@@ -6,7 +6,6 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { 
   Users, 
-  ShoppingCart, 
   Receipt, 
   Settings,
   Bluetooth,
@@ -38,8 +37,8 @@ export function Navigation({ currentRole, onRoleChange, currentUser, isMobile }:
   const [isOpen, setIsOpen] = useState(false);
 
   // Filter navigation items based on user role
-  const getNavigationItems = (): Array<{role: UserRole, label: string, icon: any, description: string}> => {
-    const baseItems: Array<{role: UserRole, label: string, icon: any, description: string}> = [
+  const getNavigationItems = (): Array<{role: UserRole, label: string, icon: React.ComponentType<{ className?: string }>, description: string}> => {
+    const baseItems: Array<{role: UserRole, label: string, icon: React.ComponentType<{ className?: string }>, description: string}> = [
       {
         role: "waiter",
         label: "Waiter",

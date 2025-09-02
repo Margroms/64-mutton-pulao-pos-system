@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
-  Settings,
   Bluetooth,
   Printer,
   Plus,
@@ -21,7 +20,7 @@ import {
   XCircle
   
 } from "lucide-react";
-import { useQuery, useMutation } from "convex/react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 interface PrinterConnection {
@@ -49,7 +48,7 @@ export function SettingsDashboard() {
     try {
       if ('bluetooth' in navigator) {
         // Request Bluetooth device
-        const device = await (navigator as any).bluetooth.requestDevice({
+        await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
           acceptAllDevices: true,
           optionalServices: ['00001800-0000-1000-8000-00805f9b34fb']
         });
@@ -336,7 +335,7 @@ export function SettingsDashboard() {
               <h4 className="font-medium text-blue-900 mb-2">For Kitchen Printer:</h4>
               <ol className="list-decimal list-inside space-y-1 text-blue-800">
                 <li>Turn on your thermal printer and enable pairing mode</li>
-                <li>Click "Connect" on the Kitchen Printer in the waiter dashboard</li>
+                <li>Click &quot;Connect&quot; on the Kitchen Printer in the waiter dashboard</li>
                 <li>Select your printer from the Bluetooth device list</li>
                 <li>Test the connection by printing a sample order</li>
               </ol>
@@ -346,7 +345,7 @@ export function SettingsDashboard() {
               <h4 className="font-medium text-green-900 mb-2">For Billing Printer:</h4>
               <ol className="list-decimal list-inside space-y-1 text-green-800">
                 <li>Turn on your thermal printer and enable pairing mode</li>
-                <li>Click "Connect Billing Printer" in the admin dashboard</li>
+                <li>Click &quot;Connect Billing Printer&quot; in the admin dashboard</li>
                 <li>Select your printer from the Bluetooth device list</li>
                 <li>Test by processing a sample bill</li>
               </ol>
