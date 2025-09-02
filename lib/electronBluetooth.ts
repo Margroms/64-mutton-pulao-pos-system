@@ -16,7 +16,7 @@ class ElectronBluetoothManager {
   private connectedDevice: BluetoothDevice | null = null;
 
   constructor() {
-    this.isElectron = typeof window !== 'undefined' && window.require;
+    this.isElectron = typeof window !== 'undefined' && typeof window.require === 'function';
   }
 
   // Check if we're running in Electron
@@ -34,7 +34,7 @@ class ElectronBluetoothManager {
       const { ipcRenderer } = window.require('electron');
       const devices = await ipcRenderer.invoke('get-bluetooth-devices');
       
-      return devices.map((device: any) => ({
+      return devices.map((device: { address: string; name?: string; paired?: boolean }) => ({
         id: device.address,
         name: device.name || 'Unknown Device',
         address: device.address,
@@ -156,7 +156,7 @@ export class HybridBluetoothManager {
     if (this.electronManager.isElectronAvailable()) {
       try {
         return await this.electronManager.getAvailableDevices();
-      } catch (error) {
+      } catch {
         console.log('Electron Bluetooth failed, falling back to Web Bluetooth');
       }
     }
@@ -199,7 +199,7 @@ export class HybridBluetoothManager {
           address: device.id,
           isPaired: false
         }];
-      } catch (error) {
+      } catch {
         throw new Error('No Bluetooth devices found or permission denied');
       }
     }

@@ -83,7 +83,7 @@ export default function Home() {
                 </div>
                 <div className="p-6 bg-gray-50 rounded-xl">
                   <div className="text-3xl font-bold text-gray-800">$156</div>
-                  <div className="text-sm text-gray-600 font-medium">Today's Revenue</div>
+                  <div className="text-sm text-gray-600 font-medium">Today&apos;s Revenue</div>
                 </div>
               </div>
             </CardContent>

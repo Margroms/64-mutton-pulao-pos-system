@@ -17,7 +17,15 @@ export default function PrinterManager() {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualPrinterName, setManualPrinterName] = useState("");
   const [manualPrinterType, setManualPrinterType] = useState<'billing' | 'kitchen'>('billing');
-  const [browserInfo, setBrowserInfo] = useState<any>(null);
+  const [browserInfo, setBrowserInfo] = useState<{
+    isSupported: boolean;
+    isSecure: boolean;
+    userAgent: string;
+    webBluetoothSupported: boolean;
+    bluetoothSupported: boolean;
+    browserName: string;
+    browserVersion: string;
+  } | null>(null);
 
   useEffect(() => {
     loadPrinters();
@@ -229,7 +237,7 @@ export default function PrinterManager() {
             <p>• Make sure your Bluetooth printer is turned ON and in pairing mode</p>
             <p>• Ensure the printer is within 10-30 feet of your device</p>
             <p>• Try restarting your Bluetooth printer</p>
-            <p>• If no devices appear, use "Add Manual" to create a test printer</p>
+            <p>• If no devices appear, use &quot;Add Manual&quot; to create a test printer</p>
             <p>• Check that your browser supports Web Bluetooth (Chrome, Edge, Opera)</p>
           </div>
         </div>
@@ -239,7 +247,7 @@ export default function PrinterManager() {
             <h3 className="font-semibold text-yellow-900 mb-2">Browser Compatibility</h3>
             <div className="text-sm text-yellow-800 space-y-1">
               <p>• Web Bluetooth API: {browserInfo.webBluetoothSupported ? "Supported" : "Not Supported"}</p>
-              <p>• Secure Context: {browserInfo.isSecureContext ? "Yes" : "No (requires HTTPS)"}</p>
+              <p>• Secure Context: {browserInfo.isSecure ? "Yes" : "No (requires HTTPS)"}</p>
               <p>• Bluetooth Supported: {browserInfo.bluetoothSupported ? "Yes" : "No"}</p>
               <p>• Browser: {browserInfo.browserName} {browserInfo.browserVersion}</p>
             </div>

@@ -28,7 +28,6 @@ export default function WaiterPage() {
 
   const tables = useQuery(api.tables.getAll);
   const menuWithCategories = useQuery(api.menu.getItemsWithCategories);
-  const waiters = useQuery(api.users.getWaiters);
   const selectedTableOrder = useQuery(
     api.orders.getByTable,
     selectedTable ? { tableId: selectedTable } : "skip"
@@ -57,8 +56,6 @@ export default function WaiterPage() {
   const displayOrder = selectedTableOrder || (selectedTable === "table2" ? sampleOrder : null);
 
   const createOrder = useMutation(api.orders.create);
-  const addItemsToOrder = useMutation(api.orders.addItems);
-  const updateTableStatus = useMutation(api.tables.updateStatus);
   const updateOrderStatus = useMutation(api.orders.updateStatus);
 
   const getTableStatusColor = (status: string) => {
@@ -76,7 +73,7 @@ export default function WaiterPage() {
     }
   };
 
-  const addItemToOrder = (item: any) => {
+  const addItemToOrder = (item: { _id: Id<"menuItems">; price: number; name?: string; description?: string; preparationTime?: number }) => {
     const existingItemIndex = currentOrder.findIndex(
       (orderItem) => orderItem.itemId === item._id
     );
@@ -189,7 +186,7 @@ export default function WaiterPage() {
     try {
       await updateOrderStatus({
         orderId,
-        status: newStatus as any,
+        status: newStatus as "pending" | "confirmed" | "preparing" | "ready" | "completed" | "served" | "cancelled",
       });
 
       if (newStatus === "completed") {
@@ -432,7 +429,7 @@ export default function WaiterPage() {
                               {displayOrder.items.map((item) => {
                                 const menuItem = menuWithCategories
                                   .flatMap(cat => cat.items)
-                                  .find(menuItem => menuItem._id === item.itemId);
+                                  .find((menuItem: { _id: Id<"menuItems">; name?: string }) => menuItem._id === item.itemId);
                                 
                                 return (
                                   <div key={item.itemId} className="flex justify-between items-center text-sm">

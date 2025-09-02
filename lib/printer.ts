@@ -238,7 +238,37 @@ class BluetoothPrinterManager {
 export const printerManager = new BluetoothPrinterManager();
 
 // Utility functions for generating print content
-export function generateKitchenReceipt(order: any, menuItems: any[]): string {
+export function generateKitchenReceipt(order: {
+  _id: string;
+  tableId: string;
+  waiterId: string;
+  items: Array<{
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    notes?: string;
+    status: string;
+  }>;
+  totalAmount: number;
+  taxAmount: number;
+  finalAmount: number;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}, menuItems: Array<{
+  _id: string;
+  name: string;
+  description?: string;
+  price: number;
+  categoryId: string;
+  isAvailable: boolean;
+  preparationTime: number;
+  imageUrl?: string;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}>): string {
   let content = '';
   content += '================================\n';
   content += '           KITCHEN ORDER        \n';
@@ -249,8 +279,27 @@ export function generateKitchenReceipt(order: any, menuItems: any[]): string {
   content += `Waiter: ${order.waiterId}\n`;
   content += '--------------------------------\n';
   
-  order.items.forEach((item: any) => {
-    const menuItem = menuItems.find((mi: any) => mi._id === item.itemId);
+  order.items.forEach((item: {
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    notes?: string;
+    status: string;
+  }) => {
+    const menuItem = menuItems.find((mi: {
+      _id: string;
+      name: string;
+      description?: string;
+      price: number;
+      categoryId: string;
+      isAvailable: boolean;
+      preparationTime: number;
+      imageUrl?: string;
+      isActive: boolean;
+      createdAt: number;
+      updatedAt: number;
+    }) => mi._id === item.itemId);
     const itemName = menuItem ? menuItem.name : 'Unknown Item';
     content += `${item.quantity}x ${itemName}\n`;
     if (item.notes) {
@@ -268,7 +317,57 @@ export function generateKitchenReceipt(order: any, menuItems: any[]): string {
   return content;
 }
 
-export function generateBillingReceipt(bill: any, order: any, menuItems: any[]): string {
+export function generateBillingReceipt(bill: {
+  _id: string;
+  orderId: string;
+  tableId: string;
+  waiterId: string;
+  billNumber: string;
+  items: Array<{
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  finalAmount: number;
+  paymentMethod: string;
+  paymentStatus: string;
+  createdAt: number;
+  paidAt?: number;
+}, order: {
+  _id: string;
+  tableId: string;
+  waiterId: string;
+  items: Array<{
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    notes?: string;
+    status: string;
+  }>;
+  totalAmount: number;
+  taxAmount: number;
+  finalAmount: number;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}, menuItems: Array<{
+  _id: string;
+  name: string;
+  description?: string;
+  price: number;
+  categoryId: string;
+  isAvailable: boolean;
+  preparationTime: number;
+  imageUrl?: string;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}>): string {
   let content = '';
   content += '================================\n';
   content += '           RESTAURANT BILL      \n';
@@ -280,8 +379,25 @@ export function generateBillingReceipt(bill: any, order: any, menuItems: any[]):
   content += `Time: ${new Date(bill.createdAt).toLocaleTimeString()}\n`;
   content += '--------------------------------\n';
   
-  bill.items.forEach((item: any) => {
-    const menuItem = menuItems.find((mi: any) => mi._id === item.itemId);
+  bill.items.forEach((item: {
+    itemId: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }) => {
+    const menuItem = menuItems.find((mi: {
+      _id: string;
+      name: string;
+      description?: string;
+      price: number;
+      categoryId: string;
+      isAvailable: boolean;
+      preparationTime: number;
+      imageUrl?: string;
+      isActive: boolean;
+      createdAt: number;
+      updatedAt: number;
+    }) => mi._id === item.itemId);
     const itemName = menuItem ? menuItem.name : 'Unknown Item';
     content += `${item.quantity}x ${itemName}\n`;
     content += `   $${item.unitPrice.toFixed(2)} x ${item.quantity} = $${item.totalPrice.toFixed(2)}\n`;

@@ -5,7 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Id } from "@/convex/_generated/dataModel";
 
 interface BillPreviewProps {
-  order: any;
+  order: {
+    _id: string;
+    tableId: string;
+    waiterId: string;
+    status: string;
+    items: Array<{
+      itemId: string;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+      notes?: string;
+      status: string;
+    }>;
+    totalAmount: number;
+    taxAmount: number;
+    finalAmount: number;
+    notes?: string;
+    createdAt: number;
+    updatedAt: number;
+    confirmedAt?: number;
+  };
   billNumber: string;
   paymentMethod: string;
   discountAmount: number;
@@ -44,7 +64,14 @@ export default function BillPreview({ order, billNumber, paymentMethod, discount
               <div className="col-span-2 text-center">Rate</div>
               <div className="col-span-2 text-right">Total</div>
             </div>
-            {order.items.map((item: any, index: number) => (
+            {order.items.map((item: {
+              itemId: string;
+              quantity: number;
+              unitPrice: number;
+              totalPrice: number;
+              notes?: string;
+              status: string;
+            }, index: number) => (
               <div key={index} className="grid grid-cols-12 gap-2 text-sm py-1 text-gray-700">
                 <div className="col-span-6">{item.itemId || `Item ${index + 1}`}</div>
                 <div className="col-span-2 text-center">{item.quantity}</div>

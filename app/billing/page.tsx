@@ -76,23 +76,6 @@ export default function BillingPage() {
   const updatePaymentStatus = useMutation(api.bills.updatePaymentStatus);
   const updateOrderStatus = useMutation(api.orders.updateStatus);
 
-  const getItemDetails = (itemId: Id<"menuItems">) => {
-    if (!menuItems) return null;
-    return menuItems
-      .flatMap(category => category.items)
-      .find(item => item._id === itemId);
-  };
-
-  const calculateTotals = () => {
-    if (!selectedOrderData) return { subtotal: 0, tax: 0, total: 0 };
-    
-    const subtotal = selectedOrderData.totalAmount;
-    const tax = selectedOrderData.taxAmount;
-    const total = subtotal + tax - discountAmount;
-    
-    return { subtotal, tax, total };
-  };
-
   const handleGenerateBill = async () => {
     if (!selectedOrder) {
       toast.error("No order selected");
@@ -382,7 +365,7 @@ export default function BillingPage() {
                         <div className="space-y-4">
                           <div>
                             <Label htmlFor="paymentMethod" className="text-sm font-medium text-gray-700">Payment Method</Label>
-                            <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                            <Select value={paymentMethod} onValueChange={(value: "cash" | "card" | "upi" | "other") => setPaymentMethod(value)}>
                               <SelectTrigger className="mt-1">
                                 <SelectValue placeholder="Select payment method" />
                               </SelectTrigger>
