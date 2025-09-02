@@ -47,7 +47,8 @@ export function AdminDashboard({ }: AdminDashboardProps) {
 
   const cancelBill = async (billId: string) => {
     try {
-      await cancelBillMutation({ billId });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await cancelBillMutation({ billId: billId as any });
       alert("Bill cancelled successfully!");
     } catch (error) {
       console.error("Error cancelling bill:", error);
@@ -80,7 +81,8 @@ export function AdminDashboard({ }: AdminDashboardProps) {
 
     try {
       await printAndClearBillMutation({
-        billId: bill._id,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        billId: bill._id as any,
         paymentMethod
       });
       

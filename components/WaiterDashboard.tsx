@@ -23,7 +23,8 @@ import { api } from "@/convex/_generated/api";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 
 interface OrderItem {
-  menuItemId: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  menuItemId: any; // Convex ID type - using any for compatibility
   menuItemName: string;
   quantity: number;
   price: number;
@@ -332,67 +333,68 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
       {/* Order Modal */}
       <Dialog open={showOrderModal} onOpenChange={setShowOrderModal}>
-        <DialogContent className="max-w-6xl max-h-[95vh] p-0 overflow-hidden">
-          {/* Modal Header */}
-          <div className="flex items-center justify-between p-6 border-b bg-white">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <ShoppingCart className="h-5 w-5 text-blue-600" />
+        <DialogContent className="w-[95vw] max-w-7xl h-[90vh] max-h-[90vh] p-0 overflow-hidden sm:p-0">
+          {/* Modal Header - Mobile Responsive */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 border-b bg-white gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
               </div>
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">
+              <div className="flex-1 sm:flex-none">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                   {currentOrder.orderType === "parcel" ? "Parcel Order" : `Table ${selectedTable}`}
                 </h2>
-                <p className="text-sm text-gray-500">Add items and manage your order</p>
+                <p className="text-xs sm:text-sm text-gray-500">Add items and manage your order</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={closeOrderModal}>
-              <X className="h-5 w-5" />
+            <Button variant="ghost" size="sm" onClick={closeOrderModal} className="self-end sm:self-auto">
+              <X className="h-4 w-4 sm:h-5 sm:w-5" />
             </Button>
           </div>
 
-          <div className="flex flex-1 overflow-hidden">
-            {/* Left Side - Current Order */}
-            <div className="w-1/3 border-r bg-gray-50 flex flex-col">
-              <div className="p-4 border-b bg-white">
-                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+          {/* Main Content - Responsive Layout */}
+          <div className="flex flex-col lg:flex-row h-full overflow-hidden">
+            {/* Left Side - Current Order - Mobile First */}
+            <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r bg-gray-50 flex flex-col min-h-0">
+              <div className="p-3 sm:p-4 border-b bg-white">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2 text-sm sm:text-base">
                   <ShoppingCart className="h-4 w-4" />
                   Current Order ({currentOrder.items.length} items)
                 </h3>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 min-h-0">
                 {currentOrder.items.length === 0 ? (
-                  <div className="text-center py-12">
-                    <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <div className="text-center py-8 sm:py-12">
+                    <ShoppingCart className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-3 sm:mb-4" />
                     <p className="text-gray-500 text-sm">No items added yet</p>
                     <p className="text-gray-400 text-xs mt-1">Browse menu to add items</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {currentOrder.items.map((item, index) => (
-                      <div key={index} className="bg-white rounded-lg p-3 shadow-sm border">
+                      <div key={index} className="bg-white rounded-lg p-2 sm:p-3 shadow-sm border">
                         <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm text-gray-900">{item.menuItemName}</h4>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-xs sm:text-sm text-gray-900 truncate">{item.menuItemName}</h4>
                             <p className="text-xs text-gray-500">₹{item.price} each</p>
                           </div>
                         </div>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 sm:gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 sm:h-7 sm:w-7 p-0"
                               onClick={() => removeItemFromOrder(item.menuItemId)}
                             >
                               <Minus className="h-3 w-3" />
                             </Button>
-                            <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                            <span className="w-6 sm:w-8 text-center text-xs sm:text-sm font-medium">{item.quantity}</span>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 w-7 p-0"
+                              className="h-6 w-6 sm:h-7 sm:w-7 p-0"
                               onClick={() => {
                                 const menuItem = menuItems?.find(m => m._id === item.menuItemId);
                                 if (menuItem) addItemToOrder(menuItem);
@@ -401,7 +403,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                               <Plus className="h-3 w-3" />
                             </Button>
                           </div>
-                          <span className="font-semibold text-sm">₹{item.price * item.quantity}</span>
+                          <span className="font-semibold text-xs sm:text-sm">₹{item.price * item.quantity}</span>
                         </div>
                       </div>
                     ))}
@@ -409,9 +411,9 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                 )}
               </div>
 
-              {/* Order Summary */}
-              <div className="p-4 border-t bg-white space-y-4">
-                <div className="flex justify-between items-center text-lg font-bold">
+              {/* Order Summary - Mobile Responsive */}
+              <div className="p-3 sm:p-4 border-t bg-white space-y-3 sm:space-y-4">
+                <div className="flex justify-between items-center text-base sm:text-lg font-bold">
                   <span>Total:</span>
                   <span className="text-blue-600">₹{currentOrder.total}</span>
                 </div>
@@ -419,8 +421,8 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                 <div className="grid grid-cols-1 gap-2">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full">
-                        <Eye className="h-4 w-4 mr-2" />
+                      <Button variant="outline" size="sm" className="w-full text-xs sm:text-sm">
+                        <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                         Preview Receipt
                       </Button>
                     </DialogTrigger>
@@ -443,39 +445,39 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                   
                   <Button 
                     onClick={createOrder} 
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
                     disabled={currentOrder.items.length === 0}
                     size="sm"
                   >
-                    <Send className="h-4 w-4 mr-2" />
+                    <Send className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Send to Kitchen
                   </Button>
                   
                   <Button 
                     onClick={sendToBilling} 
                     variant="secondary" 
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm"
                     disabled={currentOrder.items.length === 0}
                     size="sm"
                   >
-                    <Clock className="h-4 w-4 mr-2" />
+                    <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Send to Billing
                   </Button>
                 </div>
               </div>
             </div>
 
-            {/* Right Side - Menu Items */}
-            <div className="flex-1 flex flex-col">
-              {/* Search Bar */}
-              <div className="p-4 border-b bg-white">
+            {/* Right Side - Menu Items - Mobile Responsive */}
+            <div className="flex-1 flex flex-col min-h-0">
+              {/* Search Bar - Mobile Responsive */}
+              <div className="p-3 sm:p-4 border-b bg-white">
                 <div className="relative">
                   <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <Input
                     placeholder="Search menu items..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4"
+                    className="pl-10 pr-4 text-sm sm:text-base"
                   />
                   {searchTerm && (
                     <Button
@@ -490,16 +492,16 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                 </div>
               </div>
               
-              {/* Menu Items Grid */}
-              <div className="flex-1 overflow-y-auto p-4">
+              {/* Menu Items Grid - Mobile Responsive */}
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 min-h-0">
                 {filteredMenuItems.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500">No items found</p>
-                    <p className="text-gray-400 text-sm mt-1">Try searching for something else</p>
+                  <div className="text-center py-8 sm:py-12">
+                    <Search className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-3 sm:mb-4" />
+                    <p className="text-gray-500 text-sm">No items found</p>
+                    <p className="text-gray-400 text-xs mt-1">Try searching for something else</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
                     {filteredMenuItems.map((item) => (
                       <Card 
                         key={item._id} 
@@ -507,27 +509,27 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                           !item.isAvailable ? 'opacity-60' : ''
                         }`}
                       >
-                        <CardContent className="p-4">
+                        <CardContent className="p-2 sm:p-3 lg:p-4">
                           <div className="flex justify-between items-start mb-2">
-                            <h4 className="font-medium text-sm text-gray-900 leading-tight">{item.name}</h4>
+                            <h4 className="font-medium text-xs sm:text-sm lg:text-base text-gray-900 leading-tight flex-1 min-w-0 pr-2">{item.name}</h4>
                             <Badge 
                               variant={item.isAvailable ? "default" : "secondary"} 
-                              className="text-xs ml-2 flex-shrink-0"
+                              className="text-xs ml-1 sm:ml-2 flex-shrink-0"
                             >
                               {item.isAvailable ? "Available" : "Out"}
                             </Badge>
                           </div>
-                          <p className="text-xs text-gray-500 mb-3">{item.category}</p>
+                          <p className="text-xs text-gray-500 mb-2 sm:mb-3">{item.category}</p>
                           <div className="flex justify-between items-center">
-                            <span className="font-bold text-blue-600">₹{item.price}</span>
+                            <span className="font-bold text-blue-600 text-xs sm:text-sm lg:text-base">₹{item.price}</span>
                             <Button
                               size="sm"
                               onClick={() => addItemToOrder(item)}
                               disabled={!item.isAvailable}
-                              className="h-8 px-3"
+                              className="h-6 sm:h-7 lg:h-8 px-2 sm:px-3 text-xs sm:text-sm"
                             >
                               <Plus className="h-3 w-3 mr-1" />
-                              Add
+                              <span className="hidden sm:inline">Add</span>
                             </Button>
                           </div>
                         </CardContent>
