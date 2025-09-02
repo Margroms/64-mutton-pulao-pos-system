@@ -77,7 +77,7 @@ export default function Home() {
               <p className="text-gray-600 mb-6">Please use the navigation to access waiter functions</p>
               <button
                 onClick={goToWaiter}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-black text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Go to Waiter Dashboard
               </button>
@@ -96,7 +96,7 @@ export default function Home() {
               <p className="text-gray-600 mb-6">Please use the navigation to access waiter functions</p>
               <button
                 onClick={goToWaiter}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors"
               >
                 Go to Waiter Dashboard
               </button>
