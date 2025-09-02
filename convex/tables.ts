@@ -1,79 +1,59 @@
-import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
 
-export const getAll = query({
+// Get all tables
+export const getTables = query({
   handler: async (ctx) => {
+    return await ctx.db.query("tables").collect();
+  },
+});
+
+// Get table by number
+export const getTableByNumber = query({
+  args: {
+    number: v.number(),
+  },
+  handler: async (ctx, args) => {
     return await ctx.db
       .query("tables")
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .order("asc")
-      .collect();
+      .withIndex("by_number", (q) => q.eq("number", args.number))
+      .first();
   },
 });
 
-export const getById = query({
-  args: { id: v.id("tables") },
+// Create tables (initialization function)
+export const createTable = mutation({
+  args: {
+    number: v.number(),
+  },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
+    return await ctx.db.insert("tables", {
+      number: args.number,
+      isOccupied: false,
+    });
   },
 });
 
-export const create = mutation({
+// Set table occupation status
+export const setTableOccupation = mutation({
   args: {
     tableNumber: v.number(),
-    capacity: v.number(),
-    position: v.object({
-      x: v.number(),
-      y: v.number(),
-    }),
+    isOccupied: v.boolean(),
+    orderId: v.optional(v.id("orders")),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
-    return await ctx.db.insert("tables", {
-      tableNumber: args.tableNumber,
-      capacity: args.capacity,
-      status: "available",
-      position: args.position,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
+    const table = await ctx.db
+      .query("tables")
+      .withIndex("by_number", (q) => q.eq("number", args.tableNumber))
+      .first();
+    
+    if (!table) {
+      throw new Error("Table not found");
+    }
 
-export const updateStatus = mutation({
-  args: {
-    id: v.id("tables"),
-    status: v.union(
-      v.literal("available"),
-      v.literal("occupied"),
-      v.literal("reserved"),
-      v.literal("cleaning")
-    ),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.patch(args.id, {
-      status: args.status,
-      updatedAt: Date.now(),
-    });
-  },
-});
-
-export const update = mutation({
-  args: {
-    id: v.id("tables"),
-    tableNumber: v.optional(v.number()),
-    capacity: v.optional(v.number()),
-    position: v.optional(v.object({
-      x: v.number(),
-      y: v.number(),
-    })),
-  },
-  handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    return await ctx.db.patch(id, {
-      ...updates,
-      updatedAt: Date.now(),
+    await ctx.db.patch(table._id, {
+      isOccupied: args.isOccupied,
+      currentOrder: args.orderId,
     });
   },
 });

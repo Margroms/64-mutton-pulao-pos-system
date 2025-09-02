@@ -1,195 +1,164 @@
-import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
 
-const orderItemSchema = v.object({
-  itemId: v.id("menuItems"),
-  quantity: v.number(),
-  unitPrice: v.number(),
-  totalPrice: v.number(),
-  notes: v.optional(v.string()),
-  status: v.union(v.literal("pending"), v.literal("preparing"), v.literal("ready")),
-});
-
-export const getByTable = query({
-  args: { tableId: v.id("tables") },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("orders")
-      .filter((q) => 
-        q.and(
-          q.eq(q.field("tableId"), args.tableId),
-          q.neq(q.field("status"), "served"),
-          q.neq(q.field("status"), "cancelled")
-        )
-      )
-      .order("desc")
-      .first();
-  },
-});
-
-export const getById = query({
-  args: { id: v.id("orders") },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.id);
-  },
-});
-
-export const getByStatus = query({
-  args: { status: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("orders")
-      .filter((q) => q.eq(q.field("status"), args.status))
-      .order("desc")
-      .collect();
-  },
-});
-
-export const getKitchenQueue = query({
-  handler: async (ctx) => {
-    const orders = await ctx.db
-      .query("orders")
-      .filter((q) => 
-        q.or(
-          q.eq(q.field("status"), "confirmed"),
-          q.eq(q.field("status"), "preparing")
-        )
-      )
-      .order("asc")
-      .collect();
-
-    // Get table information for each order
-    const ordersWithTables = await Promise.all(
-      orders.map(async (order) => {
-        const table = await ctx.db.get(order.tableId);
-        return { ...order, table };
-      })
-    );
-
-    return ordersWithTables;
-  },
-});
-
-export const create = mutation({
+// Create a new order (supports both table and parcel orders)
+export const createOrder = mutation({
   args: {
-    tableId: v.id("tables"),
-    waiterId: v.id("users"),
-    items: v.array(orderItemSchema),
-    notes: v.optional(v.string()),
+    tableNumber: v.optional(v.number()),
+    orderType: v.union(v.literal("table"), v.literal("parcel")),
+    items: v.array(v.object({
+      menuItemId: v.id("menuItems"),
+      menuItemName: v.string(),
+      quantity: v.number(),
+      price: v.number(),
+    })),
+    waiterId: v.optional(v.string()), // Changed from v.id("users") to v.string()
+    waiterName: v.optional(v.string()),
+    customerInfo: v.optional(v.object({
+      name: v.optional(v.string()),
+      phone: v.optional(v.string()),
+    })),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
+    const totalAmount = args.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
-    // Calculate totals
-    const totalAmount = args.items.reduce((sum, item) => sum + item.totalPrice, 0);
-    const taxAmount = totalAmount * 0.18; // 18% tax
-    const finalAmount = totalAmount + taxAmount;
-
     const orderId = await ctx.db.insert("orders", {
-      tableId: args.tableId,
-      waiterId: args.waiterId,
-      status: "pending",
+      tableNumber: args.tableNumber,
+      orderType: args.orderType,
       items: args.items,
+      status: "pending",
+      createdAt: Date.now(),
+      waiterId: args.waiterId,
+      waiterName: args.waiterName,
       totalAmount,
-      taxAmount,
-      finalAmount,
-      notes: args.notes,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    // Update table status to occupied
-    await ctx.db.patch(args.tableId, {
-      status: "occupied",
-      updatedAt: now,
+      customerInfo: args.customerInfo,
     });
 
     return orderId;
   },
 });
 
-export const addItems = mutation({
+// Send order to kitchen (update status)
+export const sendToKitchen = mutation({
   args: {
     orderId: v.id("orders"),
-    items: v.array(orderItemSchema),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.orderId, {
+      status: "sent_to_kitchen",
+    });
+  },
+});
+
+// Send order to billing
+export const sendToBilling = mutation({
+  args: {
+    orderId: v.id("orders"),
   },
   handler: async (ctx, args) => {
     const order = await ctx.db.get(args.orderId);
     if (!order) throw new Error("Order not found");
 
-    const updatedItems = [...order.items, ...args.items];
-    const totalAmount = updatedItems.reduce((sum, item) => sum + item.totalPrice, 0);
-    const taxAmount = totalAmount * 0.18;
-    const finalAmount = totalAmount + taxAmount;
+    // Update order status
+    await ctx.db.patch(args.orderId, {
+      status: "sent_to_billing",
+    });
 
-    return await ctx.db.patch(args.orderId, {
-      items: updatedItems,
-      totalAmount,
-      taxAmount,
-      finalAmount,
-      updatedAt: Date.now(),
+    // Create bill
+    const billItems = order.items.map((item: any) => ({
+      menuItemName: item.menuItemName,
+      quantity: item.quantity,
+      price: item.price,
+      total: item.price * item.quantity,
+    }));
+
+    const subtotal = order.totalAmount;
+    const tax = subtotal * 0.05; // 5% tax
+    const total = subtotal + tax;
+
+    await ctx.db.insert("bills", {
+      orderId: args.orderId,
+      tableNumber: order.tableNumber || 0, // Use 0 for parcel orders
+      orderType: order.orderType,
+      items: billItems,
+      subtotal,
+      tax,
+      total,
+      status: "pending",
+      createdAt: Date.now(),
+      customerInfo: order.customerInfo,
     });
   },
 });
 
-export const updateStatus = mutation({
+// Get orders by status
+export const getOrdersByStatus = query({
   args: {
-    orderId: v.id("orders"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("confirmed"),
-      v.literal("preparing"),
-      v.literal("ready"),
-      v.literal("completed"),
-      v.literal("served"),
-      v.literal("cancelled")
-    ),
+    status: v.union(v.literal("pending"), v.literal("sent_to_kitchen"), v.literal("sent_to_billing")),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
-    const updates: any = {
-      status: args.status,
-      updatedAt: now,
-    };
-
-    if (args.status === "confirmed") {
-      updates.confirmedAt = now;
-    } else if (args.status === "ready") {
-      updates.preparedAt = now;
-    } else if (args.status === "served") {
-      updates.servedAt = now;
-      
-      // Update table status to available when order is served
-      const order = await ctx.db.get(args.orderId);
-      if (order) {
-        await ctx.db.patch(order.tableId, {
-          status: "available",
-          updatedAt: now,
-        });
-      }
-    }
-
-    return await ctx.db.patch(args.orderId, updates);
+    return await ctx.db
+      .query("orders")
+      .withIndex("by_status", (q) => q.eq("status", args.status))
+      .order("desc")
+      .collect();
   },
 });
 
-export const cancel = mutation({
-  args: { orderId: v.id("orders") },
+// Get orders for a specific table
+export const getOrdersByTable = query({
+  args: {
+    tableNumber: v.number(),
+  },
   handler: async (ctx, args) => {
-    const now = Date.now();
-    const order = await ctx.db.get(args.orderId);
-    
-    if (order) {
-      // Update table status to available
-      await ctx.db.patch(order.tableId, {
-        status: "available",
-        updatedAt: now,
-      });
-    }
+    return await ctx.db
+      .query("orders")
+      .withIndex("by_table", (q) => q.eq("tableNumber", args.tableNumber))
+      .order("desc")
+      .collect();
+  },
+});
 
-    return await ctx.db.patch(args.orderId, {
-      status: "cancelled",
-      updatedAt: now,
+// Get orders by type (table or parcel)
+export const getOrdersByType = query({
+  args: {
+    orderType: v.union(v.literal("table"), v.literal("parcel")),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("orders")
+      .withIndex("by_type", (q) => q.eq("orderType", args.orderType))
+      .order("desc")
+      .collect();
+  },
+});
+
+// Add item to existing order
+export const addItemToOrder = mutation({
+  args: {
+    orderId: v.id("orders"),
+    menuItemId: v.id("menuItems"),
+    menuItemName: v.string(),
+    quantity: v.number(),
+    price: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const order = await ctx.db.get(args.orderId);
+    if (!order) throw new Error("Order not found");
+
+    const newItem = {
+      menuItemId: args.menuItemId,
+      menuItemName: args.menuItemName,
+      quantity: args.quantity,
+      price: args.price,
+    };
+
+    const updatedItems = [...order.items, newItem];
+    const totalAmount = updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    await ctx.db.patch(args.orderId, {
+      items: updatedItems,
+      totalAmount,
     });
   },
 });

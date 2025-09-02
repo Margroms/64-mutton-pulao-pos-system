@@ -2,119 +2,94 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  // User authentication (simplified)
+  sessions: defineTable({
+    userId: v.id("users"),
+    token: v.string(),
+    expiresAt: v.number(),
+  }).index("by_token", ["token"])
+    .index("by_user", ["userId"]),
+  // Tables in the restaurant
+  tables: defineTable({
+    number: v.number(),
+    isOccupied: v.boolean(),
+    currentOrder: v.optional(v.id("orders")),
+  }).index("by_number", ["number"]),
+
+  // Menu items
+  menuItems: defineTable({
+    name: v.string(),
+    price: v.number(),
+    category: v.string(),
+    isAvailable: v.boolean(),
+  }).index("by_category", ["category"]),
+
+  // User roles and permissions
   users: defineTable({
     email: v.string(),
     name: v.string(),
-    role: v.union(v.literal("waiter"), v.literal("kitchen"), v.literal("admin")),
+    role: v.union(v.literal("waiter"), v.literal("admin")),
     isActive: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_email", ["email"]),
+  }).index("by_email", ["email"])
+    .index("by_role", ["role"]),
 
-  tables: defineTable({
-    tableNumber: v.number(),
-    capacity: v.number(),
-    status: v.union(
-      v.literal("available"),
-      v.literal("occupied"),
-      v.literal("reserved"),
-      v.literal("cleaning")
-    ),
-    position: v.object({
-      x: v.number(),
-      y: v.number(),
-    }),
-    isActive: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_table_number", ["tableNumber"]),
-
-  menuCategories: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    isActive: v.boolean(),
-    sortOrder: v.number(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_sort_order", ["sortOrder"]),
-
-  menuItems: defineTable({
-    name: v.string(),
-    description: v.optional(v.string()),
-    price: v.number(),
-    categoryId: v.id("menuCategories"),
-    isAvailable: v.boolean(),
-    preparationTime: v.number(),
-    imageUrl: v.optional(v.string()),
-    isActive: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  }).index("by_category", ["categoryId"]),
-
+  // Orders from waiters (updated with user reference and parcel support)
   orders: defineTable({
-    tableId: v.id("tables"),
-    waiterId: v.id("users"),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("confirmed"),
-      v.literal("preparing"),
-      v.literal("ready"),
-      v.literal("completed"),
-      v.literal("served"),
-      v.literal("cancelled")
-    ),
+    tableNumber: v.optional(v.number()), // Optional for parcel orders
+    orderType: v.optional(v.union(v.literal("table"), v.literal("parcel"))), // New field for order type
     items: v.array(v.object({
-      itemId: v.id("menuItems"),
+      menuItemId: v.id("menuItems"),
+      menuItemName: v.string(),
       quantity: v.number(),
-      unitPrice: v.number(),
-      totalPrice: v.number(),
-      notes: v.optional(v.string()),
-      status: v.union(v.literal("pending"), v.literal("preparing"), v.literal("ready")),
+      price: v.number(),
     })),
-    totalAmount: v.number(),
-    taxAmount: v.number(),
-    finalAmount: v.number(),
-    notes: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("sent_to_kitchen"), v.literal("sent_to_billing")),
     createdAt: v.number(),
-    updatedAt: v.number(),
-    confirmedAt: v.optional(v.number()),
-    preparedAt: v.optional(v.number()),
-    servedAt: v.optional(v.number()),
-  })
-    .index("by_table", ["tableId"])
-    .index("by_waiter", ["waiterId"])
-    .index("by_status", ["status"]),
+    waiterId: v.optional(v.string()), // Changed to string to match the mutation
+    waiterName: v.optional(v.string()),
+    totalAmount: v.number(),
+    customerInfo: v.optional(v.object({
+      name: v.optional(v.string()),
+      phone: v.optional(v.string()),
+    })),
+  }).index("by_table", ["tableNumber"])
+    .index("by_status", ["status"])
+    .index("by_type", ["orderType"])
+    .index("by_waiter", ["waiterId"]),
 
+  // Bills for admin processing
   bills: defineTable({
     orderId: v.id("orders"),
-    tableId: v.id("tables"),
-    waiterId: v.id("users"),
-    billNumber: v.string(),
+    tableNumber: v.number(), // 0 for parcel orders
+    orderType: v.optional(v.union(v.literal("table"), v.literal("parcel"))),
     items: v.array(v.object({
-      itemId: v.id("menuItems"),
+      menuItemName: v.string(),
       quantity: v.number(),
-      unitPrice: v.number(),
-      totalPrice: v.number(),
+      price: v.number(),
+      total: v.number(),
     })),
     subtotal: v.number(),
-    taxAmount: v.number(),
-    discountAmount: v.number(),
-    finalAmount: v.number(),
-    paymentMethod: v.union(
-      v.literal("cash"),
-      v.literal("card"),
-      v.literal("upi"),
-      v.literal("other")
-    ),
-    paymentStatus: v.union(
-      v.literal("pending"),
-      v.literal("paid"),
-      v.literal("cancelled")
-    ),
+    tax: v.optional(v.number()),
+    total: v.number(),
+    paymentMethod: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("paid"), v.literal("cancelled")),
     createdAt: v.number(),
     paidAt: v.optional(v.number()),
-  })
-    .index("by_order", ["orderId"])
-    .index("by_bill_number", ["billNumber"])
-    .index("by_payment_status", ["paymentStatus"]),
+    customerInfo: v.optional(v.object({
+      name: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      email: v.optional(v.string()),
+    })),
+  }).index("by_status", ["status"])
+    .index("by_table", ["tableNumber"])
+    .index("by_type", ["orderType"]),
+
+  // Printer connections
+  printers: defineTable({
+    name: v.string(),
+    type: v.union(v.literal("kitchen"), v.literal("billing")),
+    bluetoothId: v.optional(v.string()),
+    isConnected: v.boolean(),
+    lastUsed: v.optional(v.number()),
+  }).index("by_type", ["type"]),
 });

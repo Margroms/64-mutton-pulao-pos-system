@@ -1,180 +1,178 @@
-# 🍽️ Restaurant POS System
+# Restaurant POS System
 
-A modern, real-time Point of Sale (POS) system for restaurants built with Next.js, Convex DB, and TypeScript. This system provides an intuitive interface for waiters to manage tables, take orders, and process billing efficiently.
+A modern, monochrome Point of Sale system built with Next.js, shadcn/ui, and Convex database for real-time restaurant management.
 
-## ✨ Features
+## Features
 
-### Core Functionality
-- **Real-time Table Management** - Visual table grid with color-coded status indicators
-- **Order Management** - Add items, modify quantities, and submit orders seamlessly
-- **Integrated Billing System** - Generate bills with tax calculation and multiple payment methods
-- **Kitchen Order Tickets (KOT)** - Real-time order notifications to kitchen staff
-- **Responsive Design** - Works perfectly on tablets and mobile devices
+- **3 User Roles**: Waiter, Admin, and Settings management
+- **Real-time Database**: Powered by Convex for instant synchronization
+- **Bluetooth Printer Support**: Kitchen and billing receipt printing
+- **Monochrome Design**: Clean, professional interface using shadcn/ui components
+- **Receipt Previews**: Visual receipt previews for all sections
 
-### User Roles
-- **Waiter Interface** - Table management, order taking, and billing
-- **Kitchen Display** - Order queue and status management (Coming Soon)
-- **Admin Panel** - Menu management, reports, and system settings (Coming Soon)
+## System Overview
 
-## 🚀 Quick Start
+### 👨‍💼 Waiter Dashboard
+- Table management with visual status indicators
+- Menu item selection and order creation
+- Real-time order management
+- Bluetooth printer connectivity for kitchen orders
+- Send orders to kitchen (auto-print) or billing
+
+### 🏢 Admin Dashboard
+- Billing and payment processing
+- Revenue tracking and analytics
+- Bill management (pending/processed/cancelled)
+- Customer information collection
+- Bluetooth printer connectivity for receipts
+- Receipt generation and printing
+
+### ⚙️ Settings Dashboard
+- Printer management and configuration
+- Bluetooth device pairing
+- Database management tools
+- System status monitoring
+- Sample data seeding
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **UI Components**: shadcn/ui with Tailwind CSS
+- **Icons**: Lucide React (no emojis, as requested)
+- **Database**: Convex (real-time ORM)
+- **Printer Connectivity**: Web Bluetooth API
+
+## Getting Started
 
 ### Prerequisites
-- Node.js 18+ installed
-- npm or yarn package manager
+- Node.js (v18 or higher)
+- Modern browser with Bluetooth support (Chrome, Edge)
+- Bluetooth thermal printer (for physical printing)
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd 64-pulao-system
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Setup Convex Backend**
-   ```bash
-   npx convex dev
-   ```
-   Follow the prompts to create your Convex project.
-
-4. **Start the development server**
-   ```bash
-   npm run dev
-   ```
-
-5. **Setup Initial Data**
-   - Open [http://localhost:3000](http://localhost:3000)
-   - Click "Setup Initial Data" to populate the database with sample tables, menu items, and users
-
-## 📱 How to Use
-
-### For Waiters
-
-1. **Access Waiter Dashboard**
-   - Navigate to `/waiter` or click "Access Waiter Dashboard" from the home page
-
-2. **Managing Tables**
-   - View all restaurant tables in a visual grid layout
-   - Tables are color-coded:
-     - 🟢 Green: Available
-     - 🔴 Red: Occupied
-     - 🟡 Yellow: Reserved
-     - ⚫ Gray: Cleaning
-   - Click on any table to select it
-
-3. **Taking Orders**
-   - Select a table and click "New Order" or "Add Items"
-   - Browse menu items organized by categories
-   - Add items to the order with quantity adjustments
-   - Add special notes for kitchen staff
-   - Submit the order - kitchen will be notified instantly
-
-4. **Processing Bills**
-   - Click "Generate Bill" for tables with active orders
-   - Review order details and calculate totals
-   - Select payment method (Cash, Card, UPI, Other)
-   - Apply discounts if needed
-   - Generate and process payment
-
-### System Workflow
-
-```
-Table Selection → Order Creation → Kitchen Notification → Bill Generation → Payment Processing → Table Available
+1. **Clone and install dependencies**:
+```bash
+npm install
 ```
 
-## 🛠️ Technology Stack
-
-- **Frontend**: Next.js 14 with TypeScript
-- **Backend**: Convex Database with real-time subscriptions
-- **UI Framework**: Tailwind CSS with shadcn/ui components
-- **State Management**: Convex real-time state
-- **Notifications**: Sonner toast notifications
-
-## 📊 Database Schema
-
-The system uses the following main entities:
-
-- **Users** - Waiter, Kitchen, Admin roles
-- **Tables** - Restaurant table information and status
-- **Menu Categories** - Organization of menu items
-- **Menu Items** - Food and beverage items with pricing
-- **Orders** - Customer orders with items and status
-- **Bills** - Generated bills with payment information
-
-## 🔧 Configuration
-
-### Environment Variables
-The system automatically creates the necessary environment variables in `.env.local`:
-- `CONVEX_DEPLOYMENT` - Your Convex deployment identifier
-- `NEXT_PUBLIC_CONVEX_URL` - Your Convex API URL
-
-### Customization
-- Modify menu items and categories in the seed data (`convex/seedData.ts`)
-- Adjust table layout and capacity as needed
-- Customize tax rates in the order calculation logic
-
-## 📈 Performance Features
-
-- **Real-time Updates** - Instant synchronization across all devices
-- **Optimistic Updates** - Responsive UI with immediate feedback
-- **Efficient Queries** - Indexed database queries for fast performance
-- **Caching** - Smart caching of menu items and static data
-
-## 🚧 Upcoming Features
-
-- **Kitchen Display System** - Real-time order queue for kitchen staff
-- **Admin Dashboard** - Complete restaurant management interface
-- **Advanced Reporting** - Daily, monthly, and yearly analytics
-- **User Authentication** - Secure login system
-- **Inventory Management** - Track ingredient availability
-- **Customer Management** - Loyalty programs and customer data
-
-## 📝 Development
-
-### Adding New Features
-1. Create new Convex functions in the `convex/` directory
-2. Add corresponding React components in `app/` or `components/`
-3. Update the database schema if needed in `convex/schema.ts`
-
-### Database Migrations
-Run the following to apply schema changes:
+2. **Set up Convex database**:
 ```bash
 npx convex dev
 ```
+This will create your Convex project and update your `.env.local` file with the deployment URL.
 
-### Building for Production
+3. **Seed the database with sample data**:
+- Go to Settings dashboard → Database Management
+- Click "Seed Database" to add sample menu items and tables
+
+4. **Start the development server**:
 ```bash
-npm run build
+npm run dev
 ```
 
-## 🐛 Troubleshooting
+5. **Access the system**:
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Common Issues
+## Usage Guide
 
-1. **"No waiter found" error**
-   - Make sure you've run the initial data setup
-   - Check that users exist in your Convex dashboard
+### Initial Setup
+1. Start the application and navigate to the **Settings** dashboard
+2. Click "Seed Database" to populate with sample menu items and tables
+3. Set up printer connections in the printer management section
 
-2. **Real-time updates not working**
-   - Verify your Convex connection in the browser console
-   - Check that environment variables are properly set
+### Waiter Workflow
+1. Switch to **Waiter** dashboard
+2. Connect to kitchen printer via Bluetooth
+3. Select a table from the grid
+4. Add menu items to create an order
+5. Choose to either:
+   - **Send to Kitchen**: Prints order receipt to kitchen printer
+   - **Send to Billing**: Creates a bill for admin processing
 
-3. **Orders not submitting**
-   - Ensure tables and menu items exist in the database
-   - Check browser console for any JavaScript errors
+### Admin Workflow
+1. Switch to **Admin** dashboard
+2. Connect to billing printer via Bluetooth
+3. View pending bills from waiters
+4. Process payments by:
+   - Selecting payment method (Cash, Card, UPI)
+   - Adding customer information (optional)
+   - Generating and printing receipt
 
-## 📄 License
+### Kitchen Workflow
+- **No digital interface required**
+- Orders automatically print to kitchen printer when sent by waiters
+- Receipts show: Table number, date/time, item names, and quantities
 
-This project is built for educational and commercial use. Feel free to modify and adapt it for your restaurant's needs.
+## Printer Setup
 
-## 🤝 Contributing
+### Supported Printers
+- Mini Portable Inkless Thermal Printers
+- Any Bluetooth-enabled thermal printer with standard ESC/POS commands
 
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
+### Connection Steps
+1. Turn on your thermal printer
+2. Enable Bluetooth pairing mode
+3. In the app, click "Connect" for the relevant printer type
+4. Select your printer from the browser's Bluetooth device list
+5. Test the connection with a sample print
 
----
+### Troubleshooting
+- Ensure your browser supports Web Bluetooth API
+- Make sure the printer is in pairing mode
+- Check that the printer supports Bluetooth connectivity
+- Try refreshing the page if connection fails
 
-**Built with ❤️ for modern restaurants**
+## Database Schema
+
+### Tables
+- `tables`: Restaurant table management
+- `menuItems`: Menu items with categories and pricing
+- `orders`: Customer orders with items and status
+- `bills`: Generated bills for payment processing
+- `printers`: Printer connection management
+
+### Real-time Features
+- Order status updates
+- Bill creation notifications
+- Table occupation status
+- Live revenue tracking
+
+## Development
+
+### Project Structure
+```
+├── app/                    # Next.js app router
+├── components/            # React components
+│   ├── ui/               # shadcn/ui components
+│   ├── AdminDashboard.tsx
+│   ├── WaiterDashboard.tsx
+│   ├── SettingsDashboard.tsx
+│   ├── Navigation.tsx
+│   └── ReceiptPreview.tsx
+├── convex/               # Database functions
+│   ├── schema.ts         # Database schema
+│   ├── orders.ts         # Order management
+│   ├── bills.ts          # Billing functions
+│   ├── menu.ts           # Menu management
+│   └── tables.ts         # Table management
+└── lib/                  # Utility functions
+```
+
+### Adding New Features
+1. Update the Convex schema if needed
+2. Create database functions in the `convex/` directory
+3. Add UI components using shadcn/ui
+4. Use Lucide React icons (no emojis)
+5. Maintain the monochrome design aesthetic
+
+## Support
+
+For issues or questions:
+- Check the troubleshooting section
+- Review the Convex documentation
+- Ensure printer compatibility
+
+## License
+
+This project is created for restaurant management purposes.

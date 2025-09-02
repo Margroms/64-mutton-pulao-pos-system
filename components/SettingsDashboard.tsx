@@ -1,0 +1,369 @@
+"use client";
+
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Settings,
+  Bluetooth,
+  Printer,
+  Plus,
+  Trash2,
+  Wifi,
+  Database,
+  RefreshCw,
+  CheckCircle,
+  XCircle
+  
+} from "lucide-react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+
+interface PrinterConnection {
+  id: string;
+  name: string;
+  type: "kitchen" | "billing";
+  isConnected: boolean;
+  lastUsed?: Date;
+}
+
+export function SettingsDashboard() {
+  const [printers, setPrinters] = useState<PrinterConnection[]>([
+    { id: "kitchen-1", name: "Kitchen Printer", type: "kitchen", isConnected: false },
+    { id: "billing-1", name: "Billing Printer", type: "billing", isConnected: false }
+  ]);
+  
+  const [newPrinterName, setNewPrinterName] = useState("");
+  const [newPrinterType, setNewPrinterType] = useState<"kitchen" | "billing">("kitchen");
+  const [showAddPrinter, setShowAddPrinter] = useState(false);
+
+  // Convex queries and mutations
+  const seedDatabaseMutation = useMutation(api.seedData.seedDatabase);
+
+  const connectPrinter = async (printerId: string) => {
+    try {
+      if ('bluetooth' in navigator) {
+        // Request Bluetooth device
+        const device = await (navigator as any).bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['00001800-0000-1000-8000-00805f9b34fb']
+        });
+
+        // Update printer status
+        setPrinters(prev => prev.map(printer => 
+          printer.id === printerId 
+            ? { ...printer, isConnected: true, lastUsed: new Date() }
+            : printer
+        ));
+
+        alert(`Printer connected successfully!`);
+      } else {
+        alert("Bluetooth not supported in this browser");
+      }
+    } catch (error) {
+      console.error("Failed to connect to printer:", error);
+      alert("Failed to connect to printer. Make sure it's in pairing mode.");
+    }
+  };
+
+  const disconnectPrinter = (printerId: string) => {
+    setPrinters(prev => prev.map(printer => 
+      printer.id === printerId 
+        ? { ...printer, isConnected: false }
+        : printer
+    ));
+    alert("Printer disconnected");
+  };
+
+  const addPrinter = () => {
+    if (!newPrinterName.trim()) return;
+
+    const newPrinter: PrinterConnection = {
+      id: `${newPrinterType}-${Date.now()}`,
+      name: newPrinterName,
+      type: newPrinterType,
+      isConnected: false
+    };
+
+    setPrinters(prev => [...prev, newPrinter]);
+    setNewPrinterName("");
+    setShowAddPrinter(false);
+  };
+
+  const removePrinter = (printerId: string) => {
+    setPrinters(prev => prev.filter(printer => printer.id !== printerId));
+  };
+
+  const seedDatabase = async () => {
+    try {
+      await seedDatabaseMutation();
+      alert("Database seeded successfully with sample data!");
+    } catch (error) {
+      console.error("Error seeding database:", error);
+      alert("Failed to seed database");
+    }
+  };
+
+  const testPrinter = (printer: PrinterConnection) => {
+    if (!printer.isConnected) {
+      alert("Please connect the printer first");
+      return;
+    }
+
+    // Simulate printing a test receipt
+    alert(`Test print sent to ${printer.name}!`);
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-600">System configuration and printer management</p>
+        </div>
+      </div>
+
+      {/* Printer Management */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" />
+              Printer Management
+            </CardTitle>
+            <Dialog open={showAddPrinter} onOpenChange={setShowAddPrinter}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Printer
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Printer</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="printer-name">Printer Name</Label>
+                    <Input
+                      id="printer-name"
+                      value={newPrinterName}
+                      onChange={(e) => setNewPrinterName(e.target.value)}
+                      placeholder="Enter printer name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Printer Type</Label>
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        variant={newPrinterType === "kitchen" ? "default" : "outline"}
+                        onClick={() => setNewPrinterType("kitchen")}
+                        size="sm"
+                      >
+                        Kitchen
+                      </Button>
+                      <Button
+                        variant={newPrinterType === "billing" ? "default" : "outline"}
+                        onClick={() => setNewPrinterType("billing")}
+                        size="sm"
+                      >
+                        Billing
+                      </Button>
+                    </div>
+                  </div>
+                  <Button onClick={addPrinter} className="w-full">
+                    Add Printer
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {printers.map((printer) => (
+              <Card key={printer.id} className="border-l-4 border-l-blue-500">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Printer className="h-5 w-5 text-gray-600" />
+                        <div>
+                          <h3 className="font-medium">{printer.name}</h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant={printer.type === "kitchen" ? "default" : "secondary"}>
+                              {printer.type}
+                            </Badge>
+                            <div className="flex items-center gap-1">
+                              {printer.isConnected ? (
+                                <>
+                                  <CheckCircle className="h-3 w-3 text-green-500" />
+                                  <span className="text-xs text-green-600">Connected</span>
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="h-3 w-3 text-red-500" />
+                                  <span className="text-xs text-red-600">Disconnected</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {printer.lastUsed && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Last used: {printer.lastUsed.toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => testPrinter(printer)}
+                        disabled={!printer.isConnected}
+                      >
+                        Test Print
+                      </Button>
+                      {printer.isConnected ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => disconnectPrinter(printer.id)}
+                        >
+                          <Bluetooth className="h-4 w-4 mr-1" />
+                          Disconnect
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => connectPrinter(printer.id)}
+                        >
+                          <Bluetooth className="h-4 w-4 mr-1" />
+                          Connect
+                        </Button>
+                      )}
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removePrinter(printer.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* System Status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            System Status
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <div>
+                  <p className="font-medium text-green-900">Database</p>
+                  <p className="text-sm text-green-700">Connected</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2">
+                <Wifi className="h-5 w-5 text-blue-600" />
+                <div>
+                  <p className="font-medium text-blue-900">Real-time Sync</p>
+                  <p className="text-sm text-blue-700">Active</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Database Management */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Database className="h-5 w-5" />
+            Database Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div>
+              <h3 className="font-medium">Seed Sample Data</h3>
+              <p className="text-sm text-gray-600">
+                Add sample menu items and tables for testing
+              </p>
+            </div>
+            <Button onClick={seedDatabase} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Seed Database
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bluetooth Instructions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bluetooth className="h-5 w-5" />
+            Bluetooth Printer Setup Instructions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3 text-sm">
+            <div className="p-3 bg-blue-50 rounded border border-blue-200">
+              <h4 className="font-medium text-blue-900 mb-2">For Kitchen Printer:</h4>
+              <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                <li>Turn on your thermal printer and enable pairing mode</li>
+                <li>Click "Connect" on the Kitchen Printer in the waiter dashboard</li>
+                <li>Select your printer from the Bluetooth device list</li>
+                <li>Test the connection by printing a sample order</li>
+              </ol>
+            </div>
+            
+            <div className="p-3 bg-green-50 rounded border border-green-200">
+              <h4 className="font-medium text-green-900 mb-2">For Billing Printer:</h4>
+              <ol className="list-decimal list-inside space-y-1 text-green-800">
+                <li>Turn on your thermal printer and enable pairing mode</li>
+                <li>Click "Connect Billing Printer" in the admin dashboard</li>
+                <li>Select your printer from the Bluetooth device list</li>
+                <li>Test by processing a sample bill</li>
+              </ol>
+            </div>
+            
+            <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
+              <h4 className="font-medium text-yellow-900 mb-2">Troubleshooting:</h4>
+              <ul className="list-disc list-inside space-y-1 text-yellow-800">
+                <li>Make sure your printer supports Bluetooth connectivity</li>
+                <li>Ensure your browser supports Web Bluetooth API (Chrome, Edge)</li>
+                <li>Check that the printer is in pairing mode before connecting</li>
+                <li>Try refreshing the page if connection fails</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

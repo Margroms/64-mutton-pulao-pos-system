@@ -1,9 +1,7 @@
-"use client";
-
+import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { Toaster } from "@/components/ui/sonner";
+import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +13,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
+export const metadata: Metadata = {
+  title: "POS System - Restaurant Management",
+  description: "Complete restaurant management system with waiter, kitchen, and admin modules",
+};
 
 export default function RootLayout({
   children,
@@ -28,10 +28,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ConvexProvider client={convex}>
+        <ConvexClientProvider>
           {children}
-          <Toaster />
-        </ConvexProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );

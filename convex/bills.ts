@@ -1,110 +1,90 @@
-import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
 
-const billItemSchema = v.object({
-  itemId: v.id("menuItems"),
-  quantity: v.number(),
-  unitPrice: v.number(),
-  totalPrice: v.number(),
-});
-
-export const generate = mutation({
-  args: {
-    orderId: v.id("orders"),
-    paymentMethod: v.union(
-      v.literal("cash"),
-      v.literal("card"),
-      v.literal("upi"),
-      v.literal("other")
-    ),
-    discountAmount: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const order = await ctx.db.get(args.orderId);
-    if (!order) throw new Error("Order not found");
-
-    const now = Date.now();
-    const billNumber = `BILL-${now}-${order.tableId}`;
-    
-    // Convert order items to bill items
-    const billItems = order.items.map(item => ({
-      itemId: item.itemId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.totalPrice,
-    }));
-
-    const subtotal = order.totalAmount;
-    const taxAmount = order.taxAmount;
-    const discountAmount = args.discountAmount || 0;
-    const finalAmount = subtotal + taxAmount - discountAmount;
-
-    const billId = await ctx.db.insert("bills", {
-      orderId: args.orderId,
-      tableId: order.tableId,
-      waiterId: order.waiterId,
-      billNumber,
-      items: billItems,
-      subtotal,
-      taxAmount,
-      discountAmount,
-      finalAmount,
-      paymentMethod: args.paymentMethod,
-      paymentStatus: "pending",
-      createdAt: now,
-    });
-
-    return { billId, billNumber, finalAmount };
-  },
-});
-
-export const getByOrder = query({
-  args: { orderId: v.id("orders") },
-  handler: async (ctx, args) => {
+// Get all pending bills for admin
+export const getPendingBills = query({
+  handler: async (ctx) => {
     return await ctx.db
       .query("bills")
-      .filter((q) => q.eq(q.field("orderId"), args.orderId))
-      .first();
-  },
-});
-
-export const updatePaymentStatus = mutation({
-  args: {
-    billId: v.id("bills"),
-    paymentStatus: v.union(
-      v.literal("pending"),
-      v.literal("paid"),
-      v.literal("cancelled")
-    ),
-  },
-  handler: async (ctx, args) => {
-    const updates: any = {
-      paymentStatus: args.paymentStatus,
-    };
-
-    if (args.paymentStatus === "paid") {
-      updates.paidAt = Date.now();
-    }
-
-    return await ctx.db.patch(args.billId, updates);
-  },
-});
-
-export const getByDateRange = query({
-  args: {
-    startDate: v.number(),
-    endDate: v.number(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("bills")
-      .filter((q) => 
-        q.and(
-          q.gte(q.field("createdAt"), args.startDate),
-          q.lte(q.field("createdAt"), args.endDate)
-        )
-      )
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
       .order("desc")
       .collect();
+  },
+});
+
+// Get all bills
+export const getAllBills = query({
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("bills")
+      .order("desc")
+      .collect();
+  },
+});
+
+// Process payment for a bill (simplified - auto-print and clear)
+export const processBillPayment = mutation({
+  args: {
+    billId: v.id("bills"),
+    paymentMethod: v.string(),
+    customerInfo: v.optional(v.object({
+      name: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      email: v.optional(v.string()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.billId, {
+      status: "paid",
+      paymentMethod: args.paymentMethod,
+      paidAt: Date.now(),
+      customerInfo: args.customerInfo,
+    });
+
+    // Return the updated bill for printing
+    return await ctx.db.get(args.billId);
+  },
+});
+
+// Quick print and clear bill (one-click action)
+export const printAndClearBill = mutation({
+  args: {
+    billId: v.id("bills"),
+    paymentMethod: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const bill = await ctx.db.get(args.billId);
+    if (!bill) throw new Error("Bill not found");
+
+    // Mark as paid
+    await ctx.db.patch(args.billId, {
+      status: "paid",
+      paymentMethod: args.paymentMethod,
+      paidAt: Date.now(),
+    });
+
+    return bill;
+  },
+});
+
+// Cancel a bill
+export const cancelBill = mutation({
+  args: {
+    billId: v.id("bills"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.billId, {
+      status: "cancelled",
+    });
+  },
+});
+
+// Get bill by ID
+export const getBillById = query({
+  args: {
+    billId: v.id("bills"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.billId);
   },
 });

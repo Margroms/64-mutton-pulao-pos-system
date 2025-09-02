@@ -1,121 +1,53 @@
-import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
 
-export const getCategories = query({
+// Get all menu items
+export const getMenuItems = query({
   handler: async (ctx) => {
+    return await ctx.db.query("menuItems").collect();
+  },
+});
+
+// Get menu items by category
+export const getMenuItemsByCategory = query({
+  args: {
+    category: v.string(),
+  },
+  handler: async (ctx, args) => {
     return await ctx.db
-      .query("menuCategories")
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .order("asc")
-      .collect();
-  },
-});
-
-export const getItems = query({
-  args: { categoryId: v.optional(v.id("menuCategories")) },
-  handler: async (ctx, args) => {
-    let query = ctx.db
       .query("menuItems")
-      .filter((q) => q.eq(q.field("isActive"), true));
-    
-    if (args.categoryId) {
-      query = query.filter((q) => q.eq(q.field("categoryId"), args.categoryId));
-    }
-    
-    return await query.collect();
-  },
-});
-
-export const getItemsWithCategories = query({
-  handler: async (ctx) => {
-    const categories = await ctx.db
-      .query("menuCategories")
-      .filter((q) => q.eq(q.field("isActive"), true))
-      .order("asc")
+      .withIndex("by_category", (q) => q.eq("category", args.category))
       .collect();
-
-    const itemsPromises = categories.map(async (category) => {
-      const items = await ctx.db
-        .query("menuItems")
-        .filter((q) => 
-          q.and(
-            q.eq(q.field("categoryId"), category._id),
-            q.eq(q.field("isActive"), true),
-            q.eq(q.field("isAvailable"), true)
-          )
-        )
-        .collect();
-      
-      return {
-        ...category,
-        items,
-      };
-    });
-
-    return await Promise.all(itemsPromises);
   },
 });
 
-export const createCategory = mutation({
+// Add menu item (admin function)
+export const addMenuItem = mutation({
   args: {
     name: v.string(),
-    description: v.optional(v.string()),
-    sortOrder: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const now = Date.now();
-    return await ctx.db.insert("menuCategories", {
-      name: args.name,
-      description: args.description,
-      sortOrder: args.sortOrder,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-
-export const createItem = mutation({
-  args: {
-    name: v.string(),
-    description: v.optional(v.string()),
     price: v.number(),
-    categoryId: v.id("menuCategories"),
-    preparationTime: v.number(),
-    imageUrl: v.optional(v.string()),
+    category: v.string(),
+    isAvailable: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
     return await ctx.db.insert("menuItems", {
       name: args.name,
-      description: args.description,
       price: args.price,
-      categoryId: args.categoryId,
-      preparationTime: args.preparationTime,
-      imageUrl: args.imageUrl,
-      isAvailable: true,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
+      category: args.category,
+      isAvailable: args.isAvailable ?? true,
     });
   },
 });
 
-export const updateItem = mutation({
+// Update menu item availability
+export const updateMenuItemAvailability = mutation({
   args: {
-    id: v.id("menuItems"),
-    name: v.optional(v.string()),
-    description: v.optional(v.string()),
-    price: v.optional(v.number()),
-    isAvailable: v.optional(v.boolean()),
-    preparationTime: v.optional(v.number()),
-    imageUrl: v.optional(v.string()),
+    menuItemId: v.id("menuItems"),
+    isAvailable: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const { id, ...updates } = args;
-    return await ctx.db.patch(id, {
-      ...updates,
-      updatedAt: Date.now(),
+    await ctx.db.patch(args.menuItemId, {
+      isAvailable: args.isAvailable,
     });
   },
 });
