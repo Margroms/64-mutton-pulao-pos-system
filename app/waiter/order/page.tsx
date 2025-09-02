@@ -72,22 +72,27 @@ export default function WaiterOrderPage() {
 
   // Check for existing session on mount
   useEffect(() => {
-    const token = localStorage.getItem("sessionToken");
-    if (!token) {
-      router.push("/");
-      return;
-    }
-
-    // Get user info from localStorage or session
-    const userInfo = localStorage.getItem("userInfo");
-    if (userInfo) {
-      try {
-        setCurrentUser(JSON.parse(userInfo));
-      } catch (error) {
-        console.error("Error parsing user info:", error);
+    const checkAuth = () => {
+      const token = localStorage.getItem("sessionToken");
+      const userInfo = localStorage.getItem("userInfo");
+      
+      if (token && userInfo) {
+        try {
+          const user = JSON.parse(userInfo);
+          setCurrentUser(user);
+        } catch (error) {
+          console.error("Error parsing user info:", error);
+          // Clear invalid data
+          localStorage.removeItem("sessionToken");
+          localStorage.removeItem("userInfo");
+          router.push("/");
+        }
+      } else {
         router.push("/");
       }
-    }
+    };
+
+    checkAuth();
   }, [router]);
 
   // Convex queries and mutations

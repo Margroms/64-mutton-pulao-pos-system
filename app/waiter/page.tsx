@@ -27,25 +27,34 @@ export default function WaiterDashboardPage() {
   const router = useRouter();
   const [printerConnected, setPrinterConnected] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Check for existing session on mount
   useEffect(() => {
-    const token = localStorage.getItem("sessionToken");
-    if (!token) {
-      router.push("/");
-      return;
-    }
-
-    // Get user info from localStorage or session
-    const userInfo = localStorage.getItem("userInfo");
-    if (userInfo) {
-      try {
-        setCurrentUser(JSON.parse(userInfo));
-      } catch (error) {
-        console.error("Error parsing user info:", error);
+    const checkAuth = () => {
+      const token = localStorage.getItem("sessionToken");
+      const userInfo = localStorage.getItem("userInfo");
+      
+      if (token && userInfo) {
+        try {
+          const user = JSON.parse(userInfo);
+          setCurrentUser(user);
+          setIsLoading(false);
+        } catch (error) {
+          console.error("Error parsing user info:", error);
+          // Clear invalid data
+          localStorage.removeItem("sessionToken");
+          localStorage.removeItem("userInfo");
+          setIsLoading(false);
+          router.push("/");
+        }
+      } else {
+        setIsLoading(false);
         router.push("/");
       }
-    }
+    };
+
+    checkAuth();
   }, [router]);
 
   // Convex queries and mutations
@@ -53,10 +62,6 @@ export default function WaiterDashboardPage() {
 
   const selectTable = (tableNumber: number) => {
     router.push(`/waiter/order?table=${tableNumber}&type=table`);
-  };
-
-  const selectParcel = () => {
-    router.push(`/waiter/order?type=parcel`);
   };
 
   const connectToPrinter = async () => {
@@ -93,12 +98,29 @@ export default function WaiterDashboardPage() {
     router.push("/");
   };
 
-  if (!currentUser) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600 mb-6">Please log in to access waiter functions</p>
+          <button
+            onClick={() => router.push("/")}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Go to Login
+          </button>
         </div>
       </div>
     );
@@ -125,7 +147,6 @@ export default function WaiterDashboardPage() {
                 {printerConnected ? "Printer Connected" : "Connect Printer"}
               </span>
             </Button>
-
             
             {currentUser?.role === "admin" && (
               <Button
@@ -134,7 +155,7 @@ export default function WaiterDashboardPage() {
                 className="flex items-center gap-2"
               >
                 <Utensils className="w-4 h-4" />
-                Admin Dashboard
+                <span className="hidden sm:inline">Admin Dashboard</span>
               </Button>
             )}
             
@@ -144,7 +165,7 @@ export default function WaiterDashboardPage() {
               className="flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" />
-              Logout
+              <span className="hidden sm:inline">Logout</span>
             </Button>
             
             {currentUser?.role === "admin" && (
@@ -190,7 +211,6 @@ export default function WaiterDashboardPage() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
           <Card className="bg-white hover:shadow-lg transition-shadow">
             <CardContent className="p-6 text-center">
               <Bluetooth className="w-12 h-12 text-gray-600 mx-auto mb-4" />
