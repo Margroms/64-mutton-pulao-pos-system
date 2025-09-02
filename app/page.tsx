@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { AuthWrapper } from "@/components/AuthWrapper";
 import { Navigation } from "@/components/Navigation";
-import { WaiterDashboard } from "@/components/WaiterDashboard";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { SettingsDashboard } from "@/components/SettingsDashboard";
 
@@ -18,17 +18,39 @@ interface User {
 type UserRole = "waiter" | "admin" | "settings";
 
 export default function Home() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>("waiter");
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const token = localStorage.getItem("sessionToken");
+    const userInfo = localStorage.getItem("userInfo");
+    
+    if (token && userInfo) {
+      try {
+        const user = JSON.parse(userInfo);
+        setCurrentUser(user);
+        setCurrentRole(user.role);
+      } catch (error) {
+        console.error("Error parsing user info:", error);
+      }
+    }
+  }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
     setCurrentRole(user.role);
+    
+    // Store user info in localStorage
+    localStorage.setItem("userInfo", JSON.stringify(user));
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
     setCurrentRole("waiter");
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("userInfo");
   };
 
   const handleRoleChange = (role: UserRole) => {
@@ -41,16 +63,46 @@ export default function Home() {
     }
   };
 
+  const goToWaiter = () => {
+    router.push("/waiter");
+  };
+
   const renderDashboard = () => {
     switch (currentRole) {
       case "waiter":
-        return <WaiterDashboard currentUser={currentUser} />;
+        return (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold mb-4">Welcome to Waiter Dashboard</h1>
+              <p className="text-gray-600 mb-6">Please use the navigation to access waiter functions</p>
+              <button
+                onClick={goToWaiter}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Go to Waiter Dashboard
+              </button>
+            </div>
+          </div>
+        );
       case "admin":
         return <AdminDashboard currentUser={currentUser} />;
       case "settings":
         return <SettingsDashboard />;
       default:
-        return <WaiterDashboard currentUser={currentUser} />;
+        return (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold mb-4">Welcome to Waiter Dashboard</h1>
+              <p className="text-gray-600 mb-6">Please use the navigation to access waiter functions</p>
+              <button
+                onClick={goToWaiter}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Go to Waiter Dashboard
+              </button>
+            </div>
+          </div>
+        );
     }
   };
 

@@ -445,9 +445,9 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
       {/* Mobile Modal */}
       <Dialog open={showMobileModal} onOpenChange={setShowMobileModal}>
-        <DialogContent className="w-[95vw] h-[90vh] p-0 overflow-hidden">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="w-[98vw] h-[95vh] max-w-none p-0 overflow-hidden">
+          <DialogHeader className="p-4 border-b bg-white sticky top-0 z-10">
+            <DialogTitle className="flex items-center gap-2 text-lg">
               {selectedTable ? (
                 <>
                   <Utensils className="w-5 h-5" />
@@ -464,7 +464,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
           <div className="flex flex-col h-full">
             {/* Search */}
-            <div className="p-4 border-b">
+            <div className="p-4 border-b bg-white sticky top-16 z-10">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
@@ -477,12 +477,12 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
             </div>
 
             {/* Menu Items */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
               <div className="grid grid-cols-2 gap-3">
                 {filteredMenuItems.map((item) => (
-                  <Card key={item._id} className="cursor-pointer hover:shadow-md">
+                  <Card key={item._id} className="cursor-pointer hover:shadow-md bg-white">
                     <CardContent className="p-3">
-                      <div className="text-sm font-medium mb-2">{item.name}</div>
+                      <div className="text-sm font-medium mb-2 line-clamp-2">{item.name}</div>
                       <div className="text-lg font-bold text-green-600 mb-2">
                         ₹{item.price}
                       </div>
@@ -499,33 +499,35 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
               </div>
             </div>
 
-            {/* Current Order */}
-            <div className="border-t bg-gray-50 p-4">
+            {/* Current Order - Fixed at bottom */}
+            <div className="border-t bg-white p-4 sticky bottom-0">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-semibold">Current Order</h3>
                 <Badge variant="outline">₹{currentTotal}</Badge>
               </div>
               
-              <div className="space-y-2 max-h-32 overflow-y-auto">
+              <div className="space-y-2 max-h-24 overflow-y-auto mb-4">
                 {currentOrder.map((item) => (
-                  <div key={item.menuItemId} className="flex items-center justify-between bg-white p-2 rounded">
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">{item.menuItemName}</div>
+                  <div key={item.menuItemId} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm truncate">{item.menuItemName}</div>
                       <div className="text-sm text-gray-600">₹{item.price} × {item.quantity}</div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => updateItemQuantity(item.menuItemId, item.quantity - 1)}
+                        className="h-8 w-8 p-0"
                       >
                         <Minus className="w-4 h-4" />
                       </Button>
-                      <span className="text-sm font-medium">{item.quantity}</span>
+                      <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => updateItemQuantity(item.menuItemId, item.quantity + 1)}
+                        className="h-8 w-8 p-0"
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
@@ -534,7 +536,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                 ))}
               </div>
 
-              <div className="flex gap-2 mt-4">
+              <div className="flex gap-2">
                 <Button
                   onClick={sendToKitchen}
                   disabled={currentOrder.length === 0}
@@ -560,17 +562,17 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
       {/* PC Modal */}
       <Dialog open={showPCModal} onOpenChange={setShowPCModal}>
-        <DialogContent className="w-[90vw] max-w-[1200px] h-[85vh] p-0 overflow-hidden">
-          <DialogHeader className="p-6 border-b">
-            <DialogTitle className="flex items-center gap-3 text-xl">
+        <DialogContent className="w-[95vw] max-w-[1400px] h-[90vh] p-0 overflow-hidden">
+          <DialogHeader className="p-6 border-b bg-white">
+            <DialogTitle className="flex items-center gap-3 text-2xl">
               {selectedTable ? (
                 <>
-                  <Utensils className="w-6 h-6" />
+                  <Utensils className="w-7 h-7" />
                   Table {selectedTable} - Order Management
                 </>
               ) : (
                 <>
-                  <Package className="w-6 h-6" />
+                  <Package className="w-7 h-7" />
                   Parcel Order
                 </>
               )}
@@ -579,27 +581,27 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
           <div className="flex h-full">
             {/* Left Side - Menu Items */}
-            <div className="w-2/3 border-r p-6">
+            <div className="w-3/5 border-r p-6 bg-gray-50">
               {/* Search */}
               <div className="mb-6">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-6 h-6" />
                   <Input
                     placeholder="Search menu items..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 text-lg"
+                    className="pl-12 text-lg h-12"
                   />
                 </div>
               </div>
 
               {/* Menu Grid */}
-              <div className="grid grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto max-h-[60vh]">
+              <div className="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 overflow-y-auto max-h-[70vh] pr-2">
                 {filteredMenuItems.map((item) => (
-                  <Card key={item._id} className="cursor-pointer hover:shadow-lg transition-shadow">
+                  <Card key={item._id} className="cursor-pointer hover:shadow-lg transition-shadow bg-white">
                     <CardContent className="p-4">
-                      <div className="text-lg font-semibold mb-2">{item.name}</div>
-                      <div className="text-xl font-bold text-green-600 mb-3">
+                      <div className="text-lg font-semibold mb-3 line-clamp-2 min-h-[3rem]">{item.name}</div>
+                      <div className="text-xl font-bold text-green-600 mb-4">
                         ₹{item.price}
                       </div>
                       <Button
@@ -617,41 +619,44 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
             </div>
 
             {/* Right Side - Current Order */}
-            <div className="w-1/3 p-6 bg-gray-50">
+            <div className="w-2/5 p-6 bg-white">
               <div className="mb-6">
-                <h3 className="text-xl font-semibold mb-2">Current Order</h3>
-                <div className="text-2xl font-bold text-green-600">₹{currentTotal}</div>
+                <h3 className="text-2xl font-semibold mb-3">Current Order</h3>
+                <div className="text-3xl font-bold text-green-600">₹{currentTotal}</div>
               </div>
 
               {/* Order Items */}
-              <div className="space-y-3 mb-6 max-h-[40vh] overflow-y-auto">
+              <div className="space-y-3 mb-6 max-h-[45vh] overflow-y-auto pr-2">
                 {currentOrder.map((item) => (
-                  <div key={item.menuItemId} className="bg-white p-3 rounded-lg shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium">{item.menuItemName}</div>
+                  <div key={item.menuItemId} className="bg-gray-50 p-4 rounded-lg border">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="font-medium text-lg">{item.menuItemName}</div>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => removeItemFromOrder(item.menuItemId)}
+                        className="text-red-500 hover:text-red-700"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-5 h-5" />
                       </Button>
                     </div>
                     <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-600">₹{item.price} × {item.quantity}</div>
-                      <div className="flex items-center gap-2">
+                      <div className="text-base text-gray-600">₹{item.price} × {item.quantity}</div>
+                      <div className="flex items-center gap-3">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => updateItemQuantity(item.menuItemId, item.quantity - 1)}
+                          className="h-9 w-9 p-0"
                         >
                           <Minus className="w-4 h-4" />
                         </Button>
-                        <span className="font-medium">{item.quantity}</span>
+                        <span className="font-medium text-lg w-10 text-center">{item.quantity}</span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => updateItemQuantity(item.menuItemId, item.quantity + 1)}
+                          className="h-9 w-9 p-0"
                         >
                           <Plus className="w-4 h-4" />
                         </Button>
@@ -662,24 +667,24 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
               </div>
 
               {/* Action Buttons */}
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <Button
                   onClick={sendToKitchen}
                   disabled={currentOrder.length === 0}
-                  className="w-full"
+                  className="w-full h-12 text-lg"
                   size="lg"
                 >
-                  <Send className="w-5 h-5 mr-2" />
+                  <Send className="w-6 h-6 mr-3" />
                   Send to Kitchen
                 </Button>
                 <Button
                   onClick={sendToBilling}
                   disabled={selectedTable ? false : currentOrder.length === 0}
                   variant="outline"
-                  className="w-full"
+                  className="w-full h-12 text-lg"
                   size="lg"
                 >
-                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  <ShoppingCart className="w-6 h-6 mr-3" />
                   Send to Billing
                 </Button>
               </div>
