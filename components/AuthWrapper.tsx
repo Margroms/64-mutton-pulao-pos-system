@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { 
   LogIn, 
   LogOut, 
@@ -41,37 +44,46 @@ export function AuthWrapper({ children, currentUser, onLogin, onLogout }: AuthWr
   const [signupName, setSignupName] = useState("");
   const [signupRole, setSignupRole] = useState<"waiter" | "admin">("waiter");
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
 
-  // Mock users for demo (in real app, these would be in the database)
-  const mockUsers = [
-    { _id: "1", email: "admin@restaurant.com", password: "admin123", name: "Admin User", role: "admin" as const, isActive: true },
-    { _id: "2", email: "waiter@restaurant.com", password: "waiter123", name: "Waiter User", role: "waiter" as const, isActive: true },
-  ];
+  // Convex mutations
+  const authenticateUserMutation = useMutation(api.auth.authenticateUser);
+  const createUserMutation = useMutation(api.auth.createUser);
+  const logoutUserMutation = useMutation(api.auth.logoutUser);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const token = localStorage.getItem("sessionToken");
+    if (token) {
+      // TODO: Validate token with Convex
+      setSessionToken(token);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Mock authentication - in real app, use better-auth
-      const user = mockUsers.find(u => u.email === loginEmail && u.password === loginPassword);
+      // Use Convex authentication
+      const result = await authenticateUserMutation({
+        email: loginEmail,
+        password: loginPassword,
+      });
       
-      if (user && user.isActive) {
-        onLogin({
-          _id: user._id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          isActive: user.isActive
-        });
+      if (result && result.user) {
+        // Store session token
+        localStorage.setItem("sessionToken", result.sessionId);
+        setSessionToken(result.sessionId);
+        
+        // Login user
+        onLogin(result.user);
         setLoginEmail("");
         setLoginPassword("");
-      } else {
-        alert("Invalid credentials or user is inactive");
       }
     } catch (error) {
       console.error("Login error:", error);
-      alert("Login failed");
+      alert(error instanceof Error ? error.message : "Login failed");
     } finally {
       setIsLoading(false);
     }
@@ -82,24 +94,35 @@ export function AuthWrapper({ children, currentUser, onLogin, onLogout }: AuthWr
     setIsLoading(true);
 
     try {
-      // Mock signup - in real app, use better-auth and Convex
-      const newUser = {
-        _id: Date.now().toString(),
+      // Use Convex to create user
+      const userId = await createUserMutation({
         email: signupEmail,
+        password: signupPassword,
         name: signupName,
         role: signupRole,
-        isActive: true
-      };
+      });
 
-      onLogin(newUser);
-      setSignupEmail("");
-      setSignupPassword("");
-      setSignupName("");
-      setSignupRole("waiter");
-      alert("Account created successfully!");
+      if (userId) {
+        // Auto-login after successful signup
+        const result = await authenticateUserMutation({
+          email: signupEmail,
+          password: signupPassword,
+        });
+
+        if (result && result.user) {
+          localStorage.setItem("sessionToken", result.sessionId);
+          setSessionToken(result.sessionId);
+          onLogin(result.user);
+          setSignupEmail("");
+          setSignupPassword("");
+          setSignupName("");
+          setSignupRole("waiter");
+          alert("Account created and logged in successfully!");
+        }
+      }
     } catch (error) {
       console.error("Signup error:", error);
-      alert("Signup failed");
+      alert(error instanceof Error ? error.message : "Signup failed");
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +154,18 @@ export function AuthWrapper({ children, currentUser, onLogin, onLogout }: AuthWr
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onLogout}
+                onClick={async () => {
+                  if (sessionToken) {
+                    try {
+                      await logoutUserMutation({ token: sessionToken });
+                    } catch (error) {
+                      console.error("Logout error:", error);
+                    }
+                  }
+                  localStorage.removeItem("sessionToken");
+                  setSessionToken(null);
+                  onLogout();
+                }}
                 className="flex items-center gap-2"
               >
                 <LogOut className="h-4 w-4" />

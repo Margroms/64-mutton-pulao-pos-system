@@ -5,12 +5,14 @@ import { v } from "convex/values";
 export const createUser = mutation({
   args: {
     email: v.string(),
+    password: v.string(),
     name: v.string(),
     role: v.union(v.literal("waiter"), v.literal("admin")),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("users", {
       email: args.email,
+      password: args.password,
       name: args.name,
       role: args.role,
       isActive: true,

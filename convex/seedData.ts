@@ -1,15 +1,34 @@
 import { mutation } from "./_generated/server";
+import { v } from "convex/values";
 
 export const seedDatabase = mutation({
   handler: async (ctx) => {
     // Check if data already exists
     const existingMenuItems = await ctx.db.query("menuItems").first();
     const existingTables = await ctx.db.query("tables").first();
+    const existingUsers = await ctx.db.query("users").first();
     
-    if (existingMenuItems || existingTables) {
+    if (existingMenuItems || existingTables || existingUsers) {
       console.log("Database already seeded");
       return;
     }
+
+    // Seed initial users with plain text passwords (will be hashed by auth system)
+    await ctx.db.insert("users", {
+      email: "admin@restaurant.com",
+      password: "admin123", // This will be hashed when user first logs in
+      name: "Admin User",
+      role: "admin",
+      isActive: true,
+    });
+
+    await ctx.db.insert("users", {
+      email: "waiter@restaurant.com",
+      password: "waiter123", // This will be hashed when user first logs in
+      name: "Waiter User",
+      role: "waiter",
+      isActive: true,
+    });
 
     // Seed menu items
     const menuItems = [
@@ -37,6 +56,6 @@ export const seedDatabase = mutation({
       });
     }
 
-    console.log("Database seeded successfully");
+    console.log("Database seeded successfully with users, menu items, and tables");
   },
 });

@@ -71,6 +71,7 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
   const createOrderMutation = useMutation(api.orders.createOrder);
   const sendToKitchenMutation = useMutation(api.orders.sendToKitchen);
   const sendToBillingMutation = useMutation(api.orders.sendToBilling);
+  const updateTableOccupationMutation = useMutation(api.tables.setTableOccupation);
 
   const selectTable = (tableNumber: number) => {
     setSelectedTable(tableNumber);
@@ -153,6 +154,16 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
       // Automatically send to kitchen for printing
       await sendToKitchenMutation({ orderId });
 
+      // Mark table as occupied if it's a table order
+      if (currentOrder.orderType === "table" && currentOrder.tableNumber) {
+        // Update table occupation status
+        await updateTableOccupationMutation({
+          tableNumber: currentOrder.tableNumber,
+          isOccupied: true,
+          orderId: orderId
+        });
+      }
+
       // Reset order
       setCurrentOrder({
         tableNumber: null,
@@ -189,6 +200,16 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
       });
 
       await sendToBillingMutation({ orderId });
+
+      // Mark table as occupied if it's a table order
+      if (currentOrder.orderType === "table" && currentOrder.tableNumber) {
+        // Update table occupation status
+        await updateTableOccupationMutation({
+          tableNumber: currentOrder.tableNumber,
+          isOccupied: true,
+          orderId: orderId
+        });
+      }
 
       // Reset order
       setCurrentOrder({
@@ -333,7 +354,12 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
       {/* Order Modal */}
       <Dialog open={showOrderModal} onOpenChange={setShowOrderModal}>
-        <DialogContent className="w-[95vw] max-w-7xl h-[90vh] max-h-[90vh] p-0 overflow-hidden sm:p-0">
+        <DialogContent className="w-[98vw] max-w-[1400px] h-[95vh] max-h-[95vh] p-0 overflow-hidden">
+          {/* Hidden DialogTitle for accessibility */}
+          <DialogTitle className="sr-only">
+            {currentOrder.orderType === "parcel" ? "Parcel Order" : `Table ${selectedTable} Order`}
+          </DialogTitle>
+          
           {/* Modal Header - Mobile Responsive */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 sm:p-6 border-b bg-white gap-3">
             <div className="flex items-center gap-3 w-full sm:w-auto">

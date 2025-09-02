@@ -27,6 +27,7 @@ export default defineSchema({
   // User roles and permissions
   users: defineTable({
     email: v.string(),
+    password: v.string(),
     name: v.string(),
     role: v.union(v.literal("waiter"), v.literal("admin")),
     isActive: v.boolean(),

@@ -47,7 +47,7 @@ export function AdminDashboard({ }: AdminDashboardProps) {
 
   const cancelBill = async (billId: string) => {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await cancelBillMutation({ billId: billId as any });
       alert("Bill cancelled successfully!");
     } catch (error) {
