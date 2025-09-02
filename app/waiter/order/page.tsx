@@ -41,13 +41,6 @@ interface User {
   isActive: boolean;
 }
 
-interface TableOrder {
-  tableNumber: number;
-  items: OrderItem[];
-  total: number;
-  orderId?: string;
-}
-
 export default function WaiterOrderPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -96,7 +89,6 @@ export default function WaiterOrderPage() {
   }, [router]);
 
   // Convex queries and mutations
-  const tables = useQuery(api.tables.getTables);
   const menuItems = useQuery(api.menu.getMenuItems);
   const existingOrders = useQuery(api.orders.getOrdersByTable, 
     tableNumber ? { tableNumber: parseInt(tableNumber) } : "skip"
@@ -116,7 +108,7 @@ export default function WaiterOrderPage() {
       // Combine all items from existing orders
       const allItems: OrderItem[] = [];
       tableOrders.forEach(order => {
-        order.items.forEach((item: any) => {
+        order.items.forEach((item: { menuItemId: string; menuItemName: string; quantity: number; price: number }) => {
           const existingItem = allItems.find(i => i.menuItemId === item.menuItemId);
           if (existingItem) {
             existingItem.quantity += item.quantity;

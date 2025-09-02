@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AuthWrapper } from "@/components/AuthWrapper";
 
 interface User {
   _id: string;
@@ -18,7 +17,6 @@ export default function WaiterLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -32,16 +30,6 @@ export default function WaiterLayout({
       router.push("/");
     }
   }, [router]);
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem("sessionToken");
-    router.push("/");
-  };
 
   if (isLoading) {
     return (
