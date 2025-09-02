@@ -359,7 +359,7 @@ export default function WaiterOrderPage() {
 
   const getPageTitle = () => {
     if (orderType === "parcel") return "Parcel Order";
-    if (tableNumber) return `Table ${tableNumber} - Order Management`;
+    if (tableNumber) return `Table ${tableNumber}`;
     return "Order Management";
   };
 
