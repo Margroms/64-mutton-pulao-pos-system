@@ -3,14 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface User {
-  _id: string;
-  email: string;
-  name: string;
-  role: "waiter" | "admin";
-  isActive: boolean;
-}
-
 export default function WaiterLayout({
   children,
 }: {
