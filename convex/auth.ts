@@ -1,6 +1,16 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { hash, compare } from "bcryptjs";
+
+// Simple hash function that works in Convex
+function simpleHash(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return hash.toString(36);
+}
 
 // Create a new user
 export const createUser = mutation({
@@ -21,8 +31,8 @@ export const createUser = mutation({
       throw new Error("User with this email already exists");
     }
 
-    // Hash password
-    const hashedPassword = await hash(args.password, 12);
+    // Hash password using simple hash function
+    const hashedPassword = simpleHash(args.password);
 
     // Create user
     const userId = await ctx.db.insert("users", {
@@ -54,16 +64,15 @@ export const authenticateUser = mutation({
       throw new Error("Invalid credentials or user is inactive");
     }
 
-
     // Check if password needs to be hashed (for seeded users)
     if (user.password === args.password) {
       // This is a seeded user with plain text password, hash it now
-      const hashedPassword = await hash(args.password, 12);
+      const hashedPassword = simpleHash(args.password);
       await ctx.db.patch(user._id, { password: hashedPassword });
     } else {
       // Verify hashed password
-      const isValidPassword = await compare(args.password, user.password);
-      if (!isValidPassword) {
+      const hashedInput = simpleHash(args.password);
+      if (hashedInput !== user.password) {
         throw new Error("Invalid credentials");
       }
     }

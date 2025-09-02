@@ -37,7 +37,7 @@ export default defineSchema({
   // Orders from waiters (updated with user reference and parcel support)
   orders: defineTable({
     tableNumber: v.optional(v.number()), // Optional for parcel orders
-    orderType: v.optional(v.union(v.literal("table"), v.literal("parcel"))), // New field for order type
+    orderType: v.union(v.literal("table"), v.literal("parcel")), // Required field for order type
     items: v.array(v.object({
       menuItemId: v.id("menuItems"),
       menuItemName: v.string(),
