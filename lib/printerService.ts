@@ -32,6 +32,54 @@ declare global {
     getInfo?(): { usbVendorId?: number; usbProductId?: number };
   }
 
+  interface USBDevice {
+    deviceClass: number;
+    deviceProtocol: number;
+    deviceSubclass: number;
+    deviceVersionMajor: number;
+    deviceVersionMinor: number;
+    deviceVersionSubminor: number;
+    manufacturerName?: string;
+    productId: number;
+    productName?: string;
+    serialNumber?: string;
+    usbVersionMajor: number;
+    usbVersionMinor: number;
+    usbVersionSubminor: number;
+    vendorId: number;
+    open(): Promise<void>;
+    close(): Promise<void>;
+    selectConfiguration(configurationValue: number): Promise<void>;
+    claimInterface(interfaceNumber: number): Promise<void>;
+    releaseInterface(interfaceNumber: number): Promise<void>;
+    transferIn(endpointNumber: number, length: number): Promise<USBInTransferResult>;
+    transferOut(endpointNumber: number, data: BufferSource): Promise<USBOutTransferResult>;
+    reset(): Promise<void>;
+  }
+
+  interface USBInTransferResult {
+    data?: DataView;
+    status: 'ok' | 'stall' | 'babble';
+  }
+
+  interface USBOutTransferResult {
+    bytesWritten: number;
+    status: 'ok' | 'stall' | 'babble';
+  }
+
+  interface USB {
+    requestDevice(options: {
+      filters: Array<{
+        classCode?: number;
+        protocolCode?: number;
+        subclassCode?: number;
+        vendorId?: number;
+        productId?: number;
+      }>;
+    }): Promise<USBDevice>;
+    getDevices(): Promise<USBDevice[]>;
+  }
+
   interface Navigator {
     bluetooth?: {
       requestDevice(options: {
@@ -44,6 +92,7 @@ declare global {
         filters?: Array<{ usbVendorId?: number }>;
       }): Promise<SerialPort>;
     };
+    usb?: USB;
   }
 }
 
@@ -51,10 +100,10 @@ declare global {
 export interface PrinterDevice {
   id: string;
   name: string;
-  type: 'bluetooth' | 'cable';
+  type: 'bluetooth' | 'cable' | 'usb' | 'preview';
   isConnected: boolean;
-  device?: BluetoothDevice | SerialPort;
-  connectionType?: 'bluetooth' | 'cable';
+  device?: BluetoothDevice | SerialPort | USBDevice;
+  connectionType?: 'bluetooth' | 'cable' | 'usb' | 'preview';
 }
 
 export interface PrintJob {
@@ -77,19 +126,35 @@ class PrinterService {
         throw new Error('Bluetooth not supported in this browser');
       }
 
-      // Request Bluetooth device with printer services
+      // Request Bluetooth device with expanded printer filters
       const device = await navigator.bluetooth!.requestDevice({
         filters: [
           { namePrefix: 'POS' },
           { namePrefix: 'Printer' },
           { namePrefix: 'Thermal' },
-          { namePrefix: 'Receipt' }
+          { namePrefix: 'Receipt' },
+          { namePrefix: 'EPSON' },
+          { namePrefix: 'Star' },
+          { namePrefix: 'Citizen' },
+          { namePrefix: 'Bixolon' },
+          { namePrefix: 'Brother' },
+          { namePrefix: 'HP' },
+          { namePrefix: 'Canon' },
+          { namePrefix: 'Zebra' },
+          { namePrefix: 'TSC' },
+          { namePrefix: 'Godex' },
+          { namePrefix: 'BTP' },
+          { namePrefix: 'BLE' }
         ],
         optionalServices: [
           '00001800-0000-1000-8000-00805f9b34fb', // Generic Access
           '0000180a-0000-1000-8000-00805f9b34fb', // Device Information
           '0000180f-0000-1000-8000-00805f9b34fb', // Battery Service
           '0000ae30-0000-1000-8000-00805f9b34fb', // Printer Service (custom)
+          '0000ffe0-0000-1000-8000-00805f9b34fb', // Common printer service
+          '0000ff00-0000-1000-8000-00805f9b34fb', // Another common printer service
+          '0000ff10-0000-1000-8000-00805f9b34fb', // Generic printer service
+          '0000ff20-0000-1000-8000-00805f9b34fb', // Another generic service
         ]
       });
 
@@ -99,10 +164,19 @@ class PrinterService {
         throw new Error('Failed to connect to GATT server');
       }
 
+      // Test the connection by trying to discover services
+      try {
+        // Try to get a known service to test connection
+        await server.getPrimaryService('00001800-0000-1000-8000-00805f9b34fb');
+        console.log('Bluetooth connection established successfully');
+      } catch (_error) {
+        console.warn('Could not discover services, but connection established');
+      }
+
       // Store connected printer
       const printer: PrinterDevice = {
         id: printerId,
-        name: printerName,
+        name: `${printerName} (${device.name || 'Unknown Device'})`,
         type: 'bluetooth',
         isConnected: true,
         device: device,
@@ -119,11 +193,105 @@ class PrinterService {
       return true;
     } catch (error) {
       console.error('Bluetooth connection error:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('User cancelled')) {
+          throw new Error('Bluetooth device selection was cancelled');
+        } else if (error.message.includes('No device selected')) {
+          throw new Error('No Bluetooth printer selected');
+        } else if (error.message.includes('not supported')) {
+          throw new Error('Bluetooth not supported in this browser. Please use Chrome or Edge.');
+        } else if (error.message.includes('GATT server')) {
+          throw new Error('Failed to connect to printer. Please ensure the printer is turned on and in pairing mode.');
+        }
+      }
+      
       throw error;
     }
   }
 
-  // Cable/USB Printer Functions
+  // WebUSB Printer Functions
+  async connectUSBPrinter(printerId: string, printerName: string): Promise<boolean> {
+    try {
+      if (!('usb' in navigator)) {
+        throw new Error('WebUSB API not supported in this browser. Please use Chrome or Edge.');
+      }
+
+      // Request USB device with printer filters
+      const device = await navigator.usb!.requestDevice({
+        filters: [
+          // Common thermal printer vendors
+          { vendorId: 0x04b8 }, // Epson
+          { vendorId: 0x04f9 }, // Brother
+          { vendorId: 0x03f0 }, // HP
+          { vendorId: 0x04e8 }, // Samsung
+          { vendorId: 0x0fe6 }, // Citizen
+          { vendorId: 0x0519 }, // Star Micronics
+          { vendorId: 0x04e2 }, // Bixolon
+          { vendorId: 0x0bda }, // Realtek
+          { vendorId: 0x0403 }, // FTDI
+          { vendorId: 0x067b }, // Prolific
+          { vendorId: 0x1a86 }, // QinHeng Electronics
+        ]
+      });
+
+      // Open the device
+      await device.open();
+      
+      // Select configuration (usually 1)
+      await device.selectConfiguration(1);
+      
+      // Claim interface (usually 0)
+      await device.claimInterface(0);
+
+      // Store connected printer
+      const printer: PrinterDevice = {
+        id: printerId,
+        name: `${printerName} (${device.productName || `Vendor: 0x${device.vendorId.toString(16)}`})`,
+        type: 'usb',
+        isConnected: true,
+        device: device,
+        connectionType: 'usb'
+      };
+
+      this.connectedPrinters.set(printerId, printer);
+      return true;
+    } catch (error) {
+      console.error('USB connection error:', error);
+      
+      if (error instanceof Error) {
+        if (error.message.includes('No device selected')) {
+          throw new Error('No printer selected. Please select a USB printer from the list.');
+        } else if (error.message.includes('Access denied')) {
+          throw new Error('Access denied. Please allow USB device access and try again.');
+        }
+      }
+      
+      throw error;
+    }
+  }
+
+  // Print Preview (Universal fallback)
+  async connectPreviewPrinter(printerId: string, printerName: string): Promise<boolean> {
+    try {
+      // This is always available - just creates a preview printer
+      const printer: PrinterDevice = {
+        id: printerId,
+        name: `${printerName} (Preview Mode)`,
+        type: 'preview',
+        isConnected: true,
+        connectionType: 'preview'
+      };
+
+      this.connectedPrinters.set(printerId, printer);
+      return true;
+    } catch (error) {
+      console.error('Preview connection error:', error);
+      throw error;
+    }
+  }
+
+  // Cable/USB Printer Functions (Legacy Serial API)
   async connectCablePrinter(printerId: string, printerName: string): Promise<boolean> {
     try {
       // Check if we're in a supported browser
@@ -285,30 +453,56 @@ class PrinterService {
       await this.printViaBluetooth(printer, job.content);
     } else if (printer.connectionType === 'cable') {
       await this.printViaCable(printer, job.content);
+    } else if (printer.connectionType === 'usb') {
+      await this.printViaUSB(printer, job.content);
+    } else if (printer.connectionType === 'preview') {
+      await this.printViaPreview(printer, job.content);
     }
   }
 
   // Print via Bluetooth
   private async printViaBluetooth(printer: PrinterDevice, content: string): Promise<void> {
     const device = printer.device as BluetoothDevice;
-    const server = await device.gatt?.connect();
-    if (!server) {
-      throw new Error('Bluetooth connection lost');
-    }
-
-    // Convert content to bytes (ESC/POS commands)
-    const printData = this.generateESCPOSCommands(content);
     
-    // Try to find printer service and characteristic
     try {
-      const service = await server.getPrimaryService('0000ae30-0000-1000-8000-00805f9b34fb');
-      const characteristic = await service.getCharacteristic('0000ae31-0000-1000-8000-00805f9b34fb');
-      await characteristic.writeValue(printData);
-    } catch {
-      // Fallback: try generic service
-      console.warn('Custom printer service not found, trying generic approach');
-      // For now, we'll simulate the print
-      console.log('Printing via Bluetooth:', content);
+      // Connect to GATT server
+      const server = await device.gatt?.connect();
+      if (!server) {
+        throw new Error('Failed to connect to Bluetooth device');
+      }
+
+      // Convert content to bytes (ESC/POS commands)
+      const printData = this.generateESCPOSCommands(content);
+      
+      // Try to find printer service and characteristic
+      try {
+        // Try custom printer service first
+        const service = await server.getPrimaryService('0000ae30-0000-1000-8000-00805f9b34fb');
+        const characteristic = await service.getCharacteristic('0000ae31-0000-1000-8000-00805f9b34fb');
+        
+        // Send data to printer
+        await characteristic.writeValue(printData);
+      } catch (_error) {
+        // Fallback: try generic service
+        try {
+          const service = await server.getPrimaryService('0000ffe0-0000-1000-8000-00805f9b34fb');
+          const characteristic = await service.getCharacteristic('0000ffe1-0000-1000-8000-00805f9b34fb');
+          
+          // Send data to printer
+          await characteristic.writeValue(printData);
+        } catch (_error2) {
+          throw new Error('No suitable printer service or characteristic found. Please ensure your printer supports Bluetooth printing.');
+        }
+      }
+      
+      console.log('Print data sent via Bluetooth:', printData.length, 'bytes');
+      
+      // Wait a moment for the data to be processed
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+    } catch (error) {
+      console.error('Bluetooth printing error:', error);
+      throw new Error(`Failed to print via Bluetooth: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -331,6 +525,82 @@ class PrinterService {
       throw new Error('Failed to send print data to printer');
     } finally {
       writer.releaseLock();
+    }
+  }
+
+  // Print via USB
+  private async printViaUSB(printer: PrinterDevice, content: string): Promise<void> {
+    const device = printer.device as USBDevice;
+    
+    // Convert content to bytes (ESC/POS commands)
+    const printData = this.generateESCPOSCommands(content);
+    
+    try {
+      // Send data to USB device (endpoint 1 is usually for bulk out)
+      // Create a new ArrayBuffer from the Uint8Array
+      const buffer = new ArrayBuffer(printData.length);
+      const view = new Uint8Array(buffer);
+      view.set(printData);
+      
+      const result = await device.transferOut(1, buffer);
+      console.log('Print data sent via USB:', result.bytesWritten, 'bytes');
+    } catch (error) {
+      console.error('Failed to write to USB device:', error);
+      throw new Error('Failed to send print data to USB printer');
+    }
+  }
+
+  // Print via Preview (opens print dialog)
+  private async printViaPreview(printer: PrinterDevice, content: string): Promise<void> {
+    try {
+      // Create a new window for printing
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) {
+        throw new Error('Failed to open print window. Please allow popups.');
+      }
+
+      // Create print-friendly HTML
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Print Preview</title>
+          <style>
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.2;
+              margin: 0;
+              padding: 20px;
+              white-space: pre-wrap;
+              background: white;
+            }
+            @media print {
+              body { margin: 0; padding: 10px; }
+            }
+          </style>
+        </head>
+        <body>
+          ${content.replace(/\n/g, '<br>')}
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 500);
+      };
+
+      console.log('Print preview opened for:', printer.name);
+    } catch (error) {
+      console.error('Failed to open print preview:', error);
+      throw new Error('Failed to open print preview');
     }
   }
 

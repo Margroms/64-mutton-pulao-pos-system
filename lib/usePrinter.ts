@@ -7,6 +7,8 @@ export interface UsePrinterReturn {
   printQueueStatus: { pending: number; processing: number; completed: number; failed: number };
   connectBluetoothPrinter: (printerId: string, printerName: string) => Promise<boolean>;
   connectCablePrinter: (printerId: string, printerName: string) => Promise<boolean>;
+  connectUSBPrinter: (printerId: string, printerName: string) => Promise<boolean>;
+  connectPreviewPrinter: (printerId: string, printerName: string) => Promise<boolean>;
   disconnectPrinter: (printerId: string) => void;
   print: (printerId: string, content: string) => Promise<boolean>;
   isPrinterConnected: (printerId: string) => boolean;
@@ -68,6 +70,40 @@ export function usePrinter(): UsePrinterReturn {
     }
   }, [updateConnectedPrinters]);
 
+  // Connect to USB printer
+  const connectUSBPrinter = useCallback(async (printerId: string, printerName: string): Promise<boolean> => {
+    setIsConnecting(true);
+    try {
+      const success = await printerService.connectUSBPrinter(printerId, printerName);
+      if (success) {
+        updateConnectedPrinters();
+      }
+      return success;
+    } catch (error) {
+      console.error('Failed to connect USB printer:', error);
+      throw error;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [updateConnectedPrinters]);
+
+  // Connect to Preview printer
+  const connectPreviewPrinter = useCallback(async (printerId: string, printerName: string): Promise<boolean> => {
+    setIsConnecting(true);
+    try {
+      const success = await printerService.connectPreviewPrinter(printerId, printerName);
+      if (success) {
+        updateConnectedPrinters();
+      }
+      return success;
+    } catch (error) {
+      console.error('Failed to connect Preview printer:', error);
+      throw error;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [updateConnectedPrinters]);
+
   // Disconnect printer
   const disconnectPrinter = useCallback((printerId: string) => {
     printerService.disconnectPrinter(printerId);
@@ -121,6 +157,8 @@ export function usePrinter(): UsePrinterReturn {
     printQueueStatus,
     connectBluetoothPrinter,
     connectCablePrinter,
+    connectUSBPrinter,
+    connectPreviewPrinter,
     disconnectPrinter,
     print,
     isPrinterConnected,

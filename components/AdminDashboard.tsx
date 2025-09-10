@@ -38,7 +38,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ }: AdminDashboardProps) {
   const [printerConnected, setPrinterConnected] = useState(false);
-  const [printerConnectionType, setPrinterConnectionType] = useState<"bluetooth" | "cable" | null>(null);
+  const [printerConnectionType, setPrinterConnectionType] = useState<"bluetooth" | "cable" | "usb" | "preview" | null>(null);
   const [showConnectionDialog, setShowConnectionDialog] = useState(false);
 
   // Convex queries and mutations
@@ -49,8 +49,11 @@ export function AdminDashboard({ }: AdminDashboardProps) {
   
   // Printer service
   const { 
+    isConnecting,
     connectBluetoothPrinter, 
     connectCablePrinter, 
+    connectUSBPrinter,
+    connectPreviewPrinter,
     print,
     isPrinterConnected 
   } = usePrinter();
@@ -117,7 +120,7 @@ Please visit again!
     return content;
   };
 
-  const connectToPrinter = async (connectionType: "bluetooth" | "cable") => {
+  const connectToPrinter = async (connectionType: "bluetooth" | "cable" | "usb" | "preview") => {
     try {
       const printerId = "billing-1";
       const printerName = "Billing Printer";
@@ -125,8 +128,12 @@ Please visit again!
       let success = false;
       if (connectionType === "bluetooth") {
         success = await connectBluetoothPrinter(printerId, printerName);
-      } else {
+      } else if (connectionType === "usb") {
+        success = await connectUSBPrinter(printerId, printerName);
+      } else if (connectionType === "cable") {
         success = await connectCablePrinter(printerId, printerName);
+      } else if (connectionType === "preview") {
+        success = await connectPreviewPrinter(printerId, printerName);
       }
 
       if (success) {
@@ -453,22 +460,44 @@ Please visit again!
                 variant="outline"
                 className="h-20 flex flex-col items-center justify-center space-y-2"
                 onClick={() => connectToPrinter("bluetooth")}
+                disabled={isConnecting}
               >
                 <Bluetooth className="h-6 w-6 text-blue-500" />
-                <span>Bluetooth</span>
+                <span>{isConnecting ? "Connecting..." : "Bluetooth"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("usb")}
+                disabled={isConnecting}
+              >
+                <Cable className="h-6 w-6 text-green-500" />
+                <span>{isConnecting ? "Connecting..." : "USB"}</span>
               </Button>
               <Button
                 variant="outline"
                 className="h-20 flex flex-col items-center justify-center space-y-2"
                 onClick={() => connectToPrinter("cable")}
+                disabled={isConnecting}
               >
                 <Cable className="h-6 w-6 text-gray-500" />
-                <span>Cable</span>
+                <span>{isConnecting ? "Connecting..." : "Serial"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("preview")}
+                disabled={isConnecting}
+              >
+                <Printer className="h-6 w-6 text-purple-500" />
+                <span>{isConnecting ? "Connecting..." : "Preview"}</span>
               </Button>
             </div>
             <div className="text-xs text-gray-500 space-y-1">
               <p><strong>Bluetooth:</strong> Wireless connection, requires pairing</p>
-              <p><strong>Cable:</strong> Direct USB/Serial connection</p>
+              <p><strong>USB:</strong> Direct USB connection (recommended)</p>
+              <p><strong>Serial:</strong> USB-Serial converter connection</p>
+              <p><strong>Preview:</strong> Print preview (always works)</p>
             </div>
           </div>
         </DialogContent>

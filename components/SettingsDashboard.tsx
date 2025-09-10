@@ -30,7 +30,7 @@ interface PrinterConnection {
   name: string;
   type: "kitchen" | "billing";
   isConnected: boolean;
-  connectionType?: "bluetooth" | "cable";
+  connectionType?: "bluetooth" | "cable" | "usb" | "preview";
   lastUsed?: Date;
 }
 
@@ -54,6 +54,8 @@ export function SettingsDashboard() {
     isConnecting, 
     connectBluetoothPrinter, 
     connectCablePrinter, 
+    connectUSBPrinter,
+    connectPreviewPrinter,
     disconnectPrinter: disconnectRealPrinter,
     print,
     testSerialAPISupport
@@ -64,7 +66,7 @@ export function SettingsDashboard() {
     setShowConnectionDialog(true);
   };
 
-  const connectPrinter = async (printerId: string, connectionType: "bluetooth" | "cable") => {
+  const connectPrinter = async (printerId: string, connectionType: "bluetooth" | "cable" | "usb" | "preview") => {
     try {
       const printer = printers.find(p => p.id === printerId);
       if (!printer) {
@@ -74,8 +76,12 @@ export function SettingsDashboard() {
       let success = false;
       if (connectionType === "bluetooth") {
         success = await connectBluetoothPrinter(printerId, printer.name);
-      } else {
+      } else if (connectionType === "usb") {
+        success = await connectUSBPrinter(printerId, printer.name);
+      } else if (connectionType === "cable") {
         success = await connectCablePrinter(printerId, printer.name);
+      } else if (connectionType === "preview") {
+        success = await connectPreviewPrinter(printerId, printer.name);
       }
 
       if (success) {
@@ -475,23 +481,41 @@ correctly.
               <Button
                 variant="outline"
                 className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => selectedPrinterId && connectPrinter(selectedPrinterId, "usb")}
+                disabled={isConnecting}
+              >
+                <Cable className="h-6 w-6 text-green-500" />
+                <span>{isConnecting ? "Connecting..." : "USB"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
                 onClick={() => selectedPrinterId && connectPrinter(selectedPrinterId, "cable")}
                 disabled={isConnecting}
               >
                 <Cable className="h-6 w-6 text-gray-500" />
-                <span>{isConnecting ? "Connecting..." : "Cable"}</span>
+                <span>{isConnecting ? "Connecting..." : "Serial"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => selectedPrinterId && connectPrinter(selectedPrinterId, "preview")}
+                disabled={isConnecting}
+              >
+                <Printer className="h-6 w-6 text-purple-500" />
+                <span>{isConnecting ? "Connecting..." : "Preview"}</span>
               </Button>
             </div>
             <div className="text-xs text-gray-500 space-y-1">
               <p><strong>Bluetooth:</strong> Wireless connection, requires pairing</p>
-              <p><strong>Cable:</strong> Direct USB/Serial connection</p>
-              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
-                <p className="text-yellow-800 font-medium">Cable Connection Requirements:</p>
-                <ul className="text-yellow-700 text-xs mt-1 space-y-1">
-                  <li>• Use Chrome or Edge browser</li>
-                  <li>• Access via HTTPS (not HTTP)</li>
-                  <li>• USB printer must be connected</li>
-                  <li>• Allow serial port access when prompted</li>
+              <p><strong>USB:</strong> Direct USB connection (recommended)</p>
+              <p><strong>Serial:</strong> USB-Serial converter connection</p>
+              <p><strong>Preview:</strong> Print preview (always works)</p>
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                <p className="text-green-800 font-medium">Recommended:</p>
+                <ul className="text-green-700 text-xs mt-1 space-y-1">
+                  <li>• <strong>USB:</strong> Most reliable, works with most printers</li>
+                  <li>• <strong>Preview:</strong> Universal fallback, opens print dialog</li>
                 </ul>
               </div>
             </div>
