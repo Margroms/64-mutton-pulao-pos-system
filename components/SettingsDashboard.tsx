@@ -17,17 +17,21 @@ import {
   Database,
   RefreshCw,
   CheckCircle,
-  XCircle
+  XCircle,
+  Cable,
+  WifiIcon
   
 } from "lucide-react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { usePrinter } from "@/lib/usePrinter";
 
 interface PrinterConnection {
   id: string;
   name: string;
   type: "kitchen" | "billing";
   isConnected: boolean;
+  connectionType?: "bluetooth" | "cable";
   lastUsed?: Date;
 }
 
@@ -40,40 +44,66 @@ export function SettingsDashboard() {
   const [newPrinterName, setNewPrinterName] = useState("");
   const [newPrinterType, setNewPrinterType] = useState<"kitchen" | "billing">("kitchen");
   const [showAddPrinter, setShowAddPrinter] = useState(false);
+  const [showConnectionDialog, setShowConnectionDialog] = useState(false);
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string | null>(null);
 
   // Convex queries and mutations
   const seedDatabaseMutation = useMutation(api.seedData.seedDatabase);
+  
+  // Printer service
+  const { 
+    connectedPrinters, 
+    isConnecting, 
+    connectBluetoothPrinter, 
+    connectCablePrinter, 
+    disconnectPrinter: disconnectRealPrinter,
+    print,
+    isPrinterConnected 
+  } = usePrinter();
 
-  const connectPrinter = async (printerId: string) => {
+  const showConnectionOptions = (printerId: string) => {
+    setSelectedPrinterId(printerId);
+    setShowConnectionDialog(true);
+  };
+
+  const connectPrinter = async (printerId: string, connectionType: "bluetooth" | "cable") => {
     try {
-      if ('bluetooth' in navigator) {
-        // Request Bluetooth device
-        await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['00001800-0000-1000-8000-00805f9b34fb']
-        });
+      const printer = printers.find(p => p.id === printerId);
+      if (!printer) {
+        throw new Error("Printer not found");
+      }
 
-        // Update printer status
-        setPrinters(prev => prev.map(printer => 
-          printer.id === printerId 
-            ? { ...printer, isConnected: true, lastUsed: new Date() }
-            : printer
+      let success = false;
+      if (connectionType === "bluetooth") {
+        success = await connectBluetoothPrinter(printerId, printer.name);
+      } else {
+        success = await connectCablePrinter(printerId, printer.name);
+      }
+
+      if (success) {
+        // Update local printer status
+        setPrinters(prev => prev.map(p => 
+          p.id === printerId 
+            ? { ...p, isConnected: true, connectionType, lastUsed: new Date() }
+            : p
         ));
 
-        alert(`Printer connected successfully!`);
-      } else {
-        alert("Bluetooth not supported in this browser");
+        alert(`Printer connected via ${connectionType} successfully!`);
       }
+      
+      setShowConnectionDialog(false);
+      setSelectedPrinterId(null);
     } catch (error) {
       console.error("Failed to connect to printer:", error);
-      alert("Failed to connect to printer. Make sure it's in pairing mode.");
+      alert(`Failed to connect to printer via ${connectionType}. ${error instanceof Error ? error.message : 'Please check your connection and try again.'}`);
     }
   };
 
   const disconnectPrinter = (printerId: string) => {
+    disconnectRealPrinter(printerId);
     setPrinters(prev => prev.map(printer => 
       printer.id === printerId 
-        ? { ...printer, isConnected: false }
+        ? { ...printer, isConnected: false, connectionType: undefined }
         : printer
     ));
     alert("Printer disconnected");
@@ -108,14 +138,36 @@ export function SettingsDashboard() {
     }
   };
 
-  const testPrinter = (printer: PrinterConnection) => {
+  const testPrinter = async (printer: PrinterConnection) => {
     if (!printer.isConnected) {
       alert("Please connect the printer first");
       return;
     }
 
-    // Simulate printing a test receipt
-    alert(`Test print sent to ${printer.name}!`);
+    try {
+      const testContent = `
+================================
+        TEST PRINT
+================================
+
+Printer: ${printer.name}
+Type: ${printer.type}
+Connection: ${printer.connectionType}
+Time: ${new Date().toLocaleString()}
+
+This is a test print to verify
+that the printer is working
+correctly.
+
+================================
+      `;
+
+      await print(printer.id, testContent);
+      alert(`Test print sent to ${printer.name}!`);
+    } catch (error) {
+      console.error("Test print failed:", error);
+      alert(`Failed to send test print: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   return (
@@ -204,6 +256,16 @@ export function SettingsDashboard() {
                                 <>
                                   <CheckCircle className="h-3 w-3 text-green-500" />
                                   <span className="text-xs text-green-600">Connected</span>
+                                  {printer.connectionType && (
+                                    <div className="flex items-center gap-1 ml-2">
+                                      {printer.connectionType === "bluetooth" ? (
+                                        <Bluetooth className="h-3 w-3 text-blue-500" />
+                                      ) : (
+                                        <Cable className="h-3 w-3 text-gray-500" />
+                                      )}
+                                      <span className="text-xs text-gray-500 capitalize">{printer.connectionType}</span>
+                                    </div>
+                                  )}
                                 </>
                               ) : (
                                 <>
@@ -242,9 +304,9 @@ export function SettingsDashboard() {
                       ) : (
                         <Button
                           size="sm"
-                          onClick={() => connectPrinter(printer.id)}
+                          onClick={() => showConnectionOptions(printer.id)}
                         >
-                          <Bluetooth className="h-4 w-4 mr-1" />
+                          <Printer className="h-4 w-4 mr-1" />
                           Connect
                         </Button>
                       )}
@@ -321,48 +383,86 @@ export function SettingsDashboard() {
         </CardContent>
       </Card>
 
-      {/* Bluetooth Instructions */}
+      {/* Printer Connection Instructions */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bluetooth className="h-5 w-5" />
-            Bluetooth Printer Setup Instructions
+            <Printer className="h-5 w-5" />
+            Printer Connection Setup Instructions
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3 text-sm">
             <div className="p-3 bg-blue-50 rounded border border-blue-200">
-              <h4 className="font-medium text-blue-900 mb-2">For Kitchen Printer:</h4>
+              <h4 className="font-medium text-blue-900 mb-2">Bluetooth Connection:</h4>
               <ol className="list-decimal list-inside space-y-1 text-blue-800">
                 <li>Turn on your thermal printer and enable pairing mode</li>
-                <li>Click &quot;Connect&quot; on the Kitchen Printer in the waiter dashboard</li>
+                <li>Click &quot;Connect&quot; and select &quot;Bluetooth&quot;</li>
                 <li>Select your printer from the Bluetooth device list</li>
                 <li>Test the connection by printing a sample order</li>
               </ol>
             </div>
             
             <div className="p-3 bg-green-50 rounded border border-green-200">
-              <h4 className="font-medium text-green-900 mb-2">For Billing Printer:</h4>
+              <h4 className="font-medium text-green-900 mb-2">Cable Connection:</h4>
               <ol className="list-decimal list-inside space-y-1 text-green-800">
-                <li>Turn on your thermal printer and enable pairing mode</li>
-                <li>Click &quot;Connect Billing Printer&quot; in the admin dashboard</li>
-                <li>Select your printer from the Bluetooth device list</li>
-                <li>Test by processing a sample bill</li>
+                <li>Connect your printer via USB or Serial cable</li>
+                <li>Click &quot;Connect&quot; and select &quot;Cable&quot;</li>
+                <li>Ensure proper drivers are installed</li>
+                <li>Test the connection by printing a sample order</li>
               </ol>
             </div>
             
             <div className="p-3 bg-yellow-50 rounded border border-yellow-200">
               <h4 className="font-medium text-yellow-900 mb-2">Troubleshooting:</h4>
               <ul className="list-disc list-inside space-y-1 text-yellow-800">
-                <li>Make sure your printer supports Bluetooth connectivity</li>
-                <li>Ensure your browser supports Web Bluetooth API (Chrome, Edge)</li>
-                <li>Check that the printer is in pairing mode before connecting</li>
-                <li>Try refreshing the page if connection fails</li>
+                <li><strong>Bluetooth:</strong> Ensure your browser supports Web Bluetooth API (Chrome, Edge)</li>
+                <li><strong>Bluetooth:</strong> Check that the printer is in pairing mode before connecting</li>
+                <li><strong>Cable:</strong> Verify USB/Serial cable connection and drivers</li>
+                <li><strong>Both:</strong> Try refreshing the page if connection fails</li>
               </ul>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Connection Type Dialog */}
+      <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Choose Connection Type</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Select how you want to connect to the printer:
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => selectedPrinterId && connectPrinter(selectedPrinterId, "bluetooth")}
+                disabled={isConnecting}
+              >
+                <Bluetooth className="h-6 w-6 text-blue-500" />
+                <span>{isConnecting ? "Connecting..." : "Bluetooth"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => selectedPrinterId && connectPrinter(selectedPrinterId, "cable")}
+                disabled={isConnecting}
+              >
+                <Cable className="h-6 w-6 text-gray-500" />
+                <span>{isConnecting ? "Connecting..." : "Cable"}</span>
+              </Button>
+            </div>
+            <div className="text-xs text-gray-500 space-y-1">
+              <p><strong>Bluetooth:</strong> Wireless connection, requires pairing</p>
+              <p><strong>Cable:</strong> Direct USB/Serial connection</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

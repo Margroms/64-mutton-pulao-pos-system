@@ -16,11 +16,13 @@ import {
   Bluetooth,
   DollarSign,
   TrendingUp,
-  Clock
+  Clock,
+  Cable
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
+import { usePrinter } from "@/lib/usePrinter";
 
 interface User {
   _id: string;
@@ -36,12 +38,23 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ }: AdminDashboardProps) {
   const [printerConnected, setPrinterConnected] = useState(false);
+  const [printerConnectionType, setPrinterConnectionType] = useState<"bluetooth" | "cable" | null>(null);
+  const [showConnectionDialog, setShowConnectionDialog] = useState(false);
 
   // Convex queries and mutations
   const pendingBills = useQuery(api.bills.getPendingBills);
   const allBills = useQuery(api.bills.getAllBills);
   const printAndClearBillMutation = useMutation(api.bills.printAndClearBill);
   const cancelBillMutation = useMutation(api.bills.cancelBill);
+  
+  // Printer service
+  const { 
+    isConnecting, 
+    connectBluetoothPrinter, 
+    connectCablePrinter, 
+    print,
+    isPrinterConnected 
+  } = usePrinter();
 
 
 
@@ -56,30 +69,95 @@ export function AdminDashboard({ }: AdminDashboardProps) {
     }
   };
 
-  const connectToPrinter = async () => {
+  const showConnectionOptions = () => {
+    setShowConnectionDialog(true);
+  };
+
+  const generateBillPrintContent = (bill: any, paymentMethod: string): string => {
+    const timestamp = new Date().toLocaleString();
+    const subtotal = bill.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const tax = subtotal * 0.18; // 18% GST
+    const total = subtotal + tax;
+
+    let content = `
+================================
+        RESTAURANT RECEIPT
+================================
+
+Bill ID: ${bill._id}
+Date: ${timestamp}
+Table: ${bill.tableNumber || "Parcel"}
+Waiter: ${bill.waiterName || "Unknown"}
+
+================================
+ITEMS:
+================================
+`;
+
+    bill.items.forEach((item: any) => {
+      content += `${item.quantity}x ${item.menuItemName}\n`;
+      content += `   ₹${item.price} each = ₹${item.price * item.quantity}\n\n`;
+    });
+
+    content += `================================
+SUBTOTAL: ₹${subtotal.toFixed(2)}
+TAX (18%): ₹${tax.toFixed(2)}
+================================
+TOTAL: ₹${total.toFixed(2)}
+================================
+
+Payment Method: ${paymentMethod.toUpperCase()}
+Status: PAID
+
+Thank you for dining with us!
+Please visit again!
+
+================================
+    `;
+
+    return content;
+  };
+
+  const connectToPrinter = async (connectionType: "bluetooth" | "cable") => {
     try {
-      if ('bluetooth' in navigator) {
-        await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
-          filters: [{ services: ['00001800-0000-1000-8000-00805f9b34fb'] }]
-        });
-        setPrinterConnected(true);
-        alert("Billing printer connected successfully!");
+      const printerId = "billing-1";
+      const printerName = "Billing Printer";
+      
+      let success = false;
+      if (connectionType === "bluetooth") {
+        success = await connectBluetoothPrinter(printerId, printerName);
       } else {
-        alert("Bluetooth not supported in this browser");
+        success = await connectCablePrinter(printerId, printerName);
       }
+
+      if (success) {
+        setPrinterConnected(true);
+        setPrinterConnectionType(connectionType);
+        alert(`Billing printer connected via ${connectionType} successfully!`);
+      }
+      
+      setShowConnectionDialog(false);
     } catch (error) {
       console.error("Failed to connect to printer:", error);
-      alert("Failed to connect to printer");
+      alert(`Failed to connect to printer via ${connectionType}. ${error instanceof Error ? error.message : 'Please check your connection and try again.'}`);
     }
   };
 
   const printAndClearBill = async (bill: { _id: string }, paymentMethod: string = "cash") => {
-    if (!printerConnected) {
-      alert("Please connect to printer first");
+    if (!printerConnected || !isPrinterConnected("billing-1")) {
+      alert("Please connect to billing printer first");
       return;
     }
 
     try {
+      // First, print the receipt
+      const billData = allBills?.find(b => b._id === bill._id);
+      if (billData) {
+        const printContent = generateBillPrintContent(billData, paymentMethod);
+        await print("billing-1", printContent);
+      }
+
+      // Then clear the bill in the database
       await printAndClearBillMutation({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         billId: bill._id as any,
@@ -115,13 +193,21 @@ export function AdminDashboard({ }: AdminDashboardProps) {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant={printerConnected ? "default" : "outline"}
-            onClick={connectToPrinter}
+            onClick={showConnectionOptions}
             className="flex items-center gap-2 text-sm"
             size="sm"
           >
-            <Bluetooth className="h-4 w-4" />
+            {printerConnected ? (
+              printerConnectionType === "bluetooth" ? (
+                <Bluetooth className="h-4 w-4" />
+              ) : (
+                <Cable className="h-4 w-4" />
+              )
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
             <span className="hidden sm:inline">
-              {printerConnected ? "Billing Printer Connected" : "Connect Billing Printer"}
+              {printerConnected ? `Billing Printer Connected (${printerConnectionType})` : "Connect Billing Printer"}
             </span>
             <span className="sm:hidden">
               {printerConnected ? "Connected" : "Connect Printer"}
@@ -352,6 +438,42 @@ export function AdminDashboard({ }: AdminDashboardProps) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Connection Type Dialog */}
+      <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Choose Connection Type</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Select how you want to connect to the billing printer:
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("bluetooth")}
+              >
+                <Bluetooth className="h-6 w-6 text-blue-500" />
+                <span>Bluetooth</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("cable")}
+              >
+                <Cable className="h-6 w-6 text-gray-500" />
+                <span>Cable</span>
+              </Button>
+            </div>
+            <div className="text-xs text-gray-500 space-y-1">
+              <p><strong>Bluetooth:</strong> Wireless connection, requires pairing</p>
+              <p><strong>Cable:</strong> Direct USB/Serial connection</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

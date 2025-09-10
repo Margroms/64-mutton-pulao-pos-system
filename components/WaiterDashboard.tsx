@@ -15,11 +15,14 @@ import {
   Search,
   X,
   Package,
-  Utensils
+  Utensils,
+  Cable,
+  Printer
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ReceiptPreview } from "@/components/ReceiptPreview";
+import { usePrinter } from "@/lib/usePrinter";
 
 interface OrderItem {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,6 +58,8 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   const [tableOrders, setTableOrders] = useState<Map<number, TableOrder>>(new Map());
   const [printerConnected, setPrinterConnected] = useState(false);
+  const [printerConnectionType, setPrinterConnectionType] = useState<"bluetooth" | "cable" | null>(null);
+  const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isMobile, setIsMobile] = useState(false);
 
@@ -73,6 +78,15 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
   const sendToKitchenMutation = useMutation(api.orders.sendToKitchen);
   const sendToBillingMutation = useMutation(api.orders.sendToBilling);
   const updateTableOccupationMutation = useMutation(api.tables.setTableOccupation);
+  
+  // Printer service
+  const { 
+    isConnecting, 
+    connectBluetoothPrinter, 
+    connectCablePrinter, 
+    print,
+    isPrinterConnected 
+  } = usePrinter();
 
   const selectTable = (tableNumber: number) => {
     setSelectedTable(tableNumber);
@@ -206,6 +220,17 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
 
       // Send to kitchen
       await sendToKitchenMutation({ orderId });
+
+      // Print to kitchen printer if connected
+      if (printerConnected && isPrinterConnected("kitchen-1")) {
+        try {
+          const printContent = generateKitchenPrintContent(currentOrder, selectedTable, orderId);
+          await print("kitchen-1", printContent);
+        } catch (printError) {
+          console.error("Failed to print kitchen order:", printError);
+          // Don't fail the entire operation if printing fails
+        }
+      }
 
       // Mark table as occupied if it's a table order
       if (selectedTable) {
@@ -349,27 +374,70 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
     }
   };
 
-  const connectToPrinter = async () => {
+  const showConnectionOptions = () => {
+    setShowConnectionDialog(true);
+  };
+
+  const generateKitchenPrintContent = (order: OrderItem[], tableNumber: number | null, orderId: string): string => {
+    const orderType = tableNumber ? `Table ${tableNumber}` : "Parcel Order";
+    const timestamp = new Date().toLocaleString();
+    const total = order.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    let content = `
+================================
+        KITCHEN ORDER
+================================
+
+Order ID: ${orderId}
+Type: ${orderType}
+Time: ${timestamp}
+Waiter: ${currentUser?.name || "Unknown"}
+
+================================
+ITEMS:
+================================
+`;
+
+    order.forEach(item => {
+      content += `${item.quantity}x ${item.menuItemName}\n`;
+      content += `   ₹${item.price} each = ₹${item.price * item.quantity}\n\n`;
+    });
+
+    content += `================================
+TOTAL: ₹${total}
+================================
+
+Please prepare this order.
+Thank you!
+
+================================
+    `;
+
+    return content;
+  };
+
+  const connectToPrinter = async (connectionType: "bluetooth" | "cable") => {
     try {
-      if ('bluetooth' in navigator) {
-        const device = await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['00001800-0000-1000-8000-00805f9b34fb', '0000180f-0000-1000-8000-00805f9b34fb']
-        });
-        
-        const server = await (device as { gatt?: { connect: () => Promise<unknown> } }).gatt?.connect();
-        if (server) {
-          setPrinterConnected(true);
-          alert("Kitchen printer connected successfully!");
-        } else {
-          alert("Failed to establish connection with printer");
-        }
+      const printerId = "kitchen-1";
+      const printerName = "Kitchen Printer";
+      
+      let success = false;
+      if (connectionType === "bluetooth") {
+        success = await connectBluetoothPrinter(printerId, printerName);
       } else {
-        alert("Bluetooth not supported in this browser");
+        success = await connectCablePrinter(printerId, printerName);
       }
+
+      if (success) {
+        setPrinterConnected(true);
+        setPrinterConnectionType(connectionType);
+        alert(`Kitchen printer connected via ${connectionType} successfully!`);
+      }
+      
+      setShowConnectionDialog(false);
     } catch (error) {
-      console.error("Bluetooth connection error:", error);
-      alert("Failed to connect to printer");
+      console.error("Connection error:", error);
+      alert(`Failed to connect to printer via ${connectionType}. ${error instanceof Error ? error.message : 'Please check your connection and try again.'}`);
     }
   };
 
@@ -390,12 +458,20 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
         
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
-            onClick={connectToPrinter}
+            onClick={showConnectionOptions}
             variant={printerConnected ? "default" : "outline"}
             className="flex items-center gap-2"
           >
-            <Bluetooth className="w-4 h-4" />
-            {printerConnected ? "Printer Connected" : "Connect Printer"}
+            {printerConnected ? (
+              printerConnectionType === "bluetooth" ? (
+                <Bluetooth className="w-4 h-4" />
+              ) : (
+                <Cable className="w-4 h-4" />
+              )
+            ) : (
+              <Printer className="w-4 h-4" />
+            )}
+            {printerConnected ? `Printer Connected (${printerConnectionType})` : "Connect Printer"}
           </Button>
           
           <Button
@@ -704,6 +780,44 @@ export function WaiterDashboard({ currentUser }: WaiterDashboardProps) {
                   />
                 </div>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Connection Type Dialog */}
+      <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Choose Connection Type</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Select how you want to connect to the kitchen printer:
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("bluetooth")}
+                disabled={isConnecting}
+              >
+                <Bluetooth className="h-6 w-6 text-blue-500" />
+                <span>{isConnecting ? "Connecting..." : "Bluetooth"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("cable")}
+                disabled={isConnecting}
+              >
+                <Cable className="h-6 w-6 text-gray-500" />
+                <span>{isConnecting ? "Connecting..." : "Cable"}</span>
+              </Button>
+            </div>
+            <div className="text-xs text-gray-500 space-y-1">
+              <p><strong>Bluetooth:</strong> Wireless connection, requires pairing</p>
+              <p><strong>Cable:</strong> Direct USB/Serial connection</p>
             </div>
           </div>
         </DialogContent>

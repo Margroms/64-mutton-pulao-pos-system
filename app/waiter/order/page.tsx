@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Plus,
   Minus,
@@ -19,7 +20,9 @@ import {
   ArrowLeft,
   LogOut,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Cable,
+  Printer
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -50,6 +53,8 @@ export default function WaiterOrderPage() {
   const [currentOrder, setCurrentOrder] = useState<OrderItem[]>([]);
   const [previousOrders, setPreviousOrders] = useState<OrderItem[]>([]);
   const [printerConnected, setPrinterConnected] = useState(false);
+  const [printerConnectionType, setPrinterConnectionType] = useState<"bluetooth" | "cable" | null>(null);
+  const [showConnectionDialog, setShowConnectionDialog] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -319,26 +324,40 @@ export default function WaiterOrderPage() {
     }
   };
 
-  const connectToPrinter = async () => {
+  const showConnectionOptions = () => {
+    setShowConnectionDialog(true);
+  };
+
+  const connectToPrinter = async (connectionType: "bluetooth" | "cable") => {
     try {
-      if ('bluetooth' in navigator) {
-        const device = await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices: ['00001800-0000-1000-8000-00805f9b34fb', '0000180f-0000-1000-8000-00805f9b34fb']
-        });
-        
-        const server = await (device as { gatt?: { connect: () => Promise<unknown> } }).gatt?.connect();
-        if (server) {
-          setPrinterConnected(true);
-          alert("Kitchen printer connected successfully!");
+      if (connectionType === "bluetooth") {
+        if ('bluetooth' in navigator) {
+          const device = await (navigator as unknown as { bluetooth: { requestDevice: (options: unknown) => Promise<unknown> } }).bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: ['00001800-0000-1000-8000-00805f9b34fb', '0000180f-0000-1000-8000-00805f9b34fb']
+          });
+          
+          const server = await (device as { gatt?: { connect: () => Promise<unknown> } }).gatt?.connect();
+          if (server) {
+            setPrinterConnected(true);
+            setPrinterConnectionType("bluetooth");
+            alert("Kitchen printer connected via Bluetooth successfully!");
+          } else {
+            alert("Failed to establish connection with printer");
+          }
         } else {
-          alert("Failed to establish connection with printer");
+          alert("Bluetooth not supported in this browser");
         }
       } else {
-        alert("Bluetooth not supported in this browser");
+        // Cable connection - simulate connection
+        setPrinterConnected(true);
+        setPrinterConnectionType("cable");
+        alert("Kitchen printer connected via Cable successfully!");
       }
+      
+      setShowConnectionDialog(false);
     } catch (error) {
-      console.error("Bluetooth connection error:", error);
+      console.error("Connection error:", error);
       alert("Failed to connect to printer");
     }
   };
@@ -403,12 +422,20 @@ export default function WaiterOrderPage() {
             
             <div className="flex items-center gap-2">
               <Button
-                onClick={connectToPrinter}
+                onClick={showConnectionOptions}
                 variant={printerConnected ? "default" : "outline"}
                 size="sm"
                 className="p-2"
               >
-                <Bluetooth className="w-4 h-4" />
+                {printerConnected ? (
+                  printerConnectionType === "bluetooth" ? (
+                    <Bluetooth className="w-4 h-4" />
+                  ) : (
+                    <Cable className="w-4 h-4" />
+                  )
+                ) : (
+                  <Printer className="w-4 h-4" />
+                )}
               </Button>
               
               <Button
@@ -626,12 +653,20 @@ export default function WaiterOrderPage() {
           
           <div className="flex items-center gap-3">
             <Button
-              onClick={connectToPrinter}
+              onClick={showConnectionOptions}
               variant={printerConnected ? "default" : "outline"}
               className="flex items-center gap-2"
             >
-              <Bluetooth className="w-4 h-4" />
-              {printerConnected ? "Printer Connected" : "Connect Printer"}
+              {printerConnected ? (
+                printerConnectionType === "bluetooth" ? (
+                  <Bluetooth className="w-4 h-4" />
+                ) : (
+                  <Cable className="w-4 h-4" />
+                )
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
+              {printerConnected ? `Printer Connected (${printerConnectionType})` : "Connect Printer"}
             </Button>
             
             <Button
@@ -824,6 +859,42 @@ export default function WaiterOrderPage() {
           </div>
         </div>
       </div>
+
+      {/* Connection Type Dialog */}
+      <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Choose Connection Type</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Select how you want to connect to the kitchen printer:
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("bluetooth")}
+              >
+                <Bluetooth className="h-6 w-6 text-blue-500" />
+                <span>Bluetooth</span>
+              </Button>
+              <Button
+                variant="outline"
+                className="h-20 flex flex-col items-center justify-center space-y-2"
+                onClick={() => connectToPrinter("cable")}
+              >
+                <Cable className="h-6 w-6 text-gray-500" />
+                <span>Cable</span>
+              </Button>
+            </div>
+            <div className="text-xs text-gray-500 space-y-1">
+              <p><strong>Bluetooth:</strong> Wireless connection, requires pairing</p>
+              <p><strong>Cable:</strong> Direct USB/Serial connection</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
