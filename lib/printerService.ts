@@ -1,4 +1,49 @@
 // Printer Service for handling real printer connections and printing
+
+// Type declarations for Web APIs
+declare global {
+  interface BluetoothDevice {
+    id: string;
+    name?: string;
+    gatt?: BluetoothRemoteGATTServer;
+    addEventListener(type: string, listener: () => void): void;
+  }
+
+  interface BluetoothRemoteGATTServer {
+    connect(): Promise<BluetoothRemoteGATTServer>;
+    disconnect(): void;
+    getPrimaryService(service: string): Promise<BluetoothRemoteGATTService>;
+  }
+
+  interface BluetoothRemoteGATTService {
+    getCharacteristic(characteristic: string): Promise<BluetoothRemoteGATTCharacteristic>;
+  }
+
+  interface BluetoothRemoteGATTCharacteristic {
+    writeValue(data: Uint8Array): Promise<void>;
+  }
+
+  interface SerialPort {
+    open(options: { baudRate: number }): Promise<void>;
+    close(): Promise<void>;
+    writable?: WritableStream<Uint8Array>;
+  }
+
+  interface Navigator {
+    bluetooth?: {
+      requestDevice(options: {
+        filters?: Array<{ namePrefix?: string }>;
+        optionalServices?: string[];
+      }): Promise<BluetoothDevice>;
+    };
+    serial?: {
+      requestPort(options?: {
+        filters?: Array<{ usbVendorId?: number }>;
+      }): Promise<SerialPort>;
+    };
+  }
+}
+
 export interface PrinterDevice {
   id: string;
   name: string;
@@ -29,7 +74,7 @@ class PrinterService {
       }
 
       // Request Bluetooth device with printer services
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await navigator.bluetooth!.requestDevice({
         filters: [
           { namePrefix: 'POS' },
           { namePrefix: 'Printer' },
@@ -82,7 +127,7 @@ class PrinterService {
       }
 
       // Request serial port access
-      const port = await navigator.serial.requestPort({
+      const port = await navigator.serial!.requestPort({
         filters: [
           { usbVendorId: 0x04b8 }, // Epson
           { usbVendorId: 0x04f9 }, // Brother
