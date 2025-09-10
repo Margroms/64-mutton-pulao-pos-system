@@ -11,6 +11,7 @@ export interface UsePrinterReturn {
   print: (printerId: string, content: string) => Promise<boolean>;
   isPrinterConnected: (printerId: string) => boolean;
   getPrinter: (printerId: string) => PrinterDevice | undefined;
+  testSerialAPISupport: () => Promise<{ supported: boolean; message: string }>;
 }
 
 export function usePrinter(): UsePrinterReturn {
@@ -97,6 +98,11 @@ export function usePrinter(): UsePrinterReturn {
     return printerService.getPrinter(printerId);
   }, []);
 
+  // Test serial API support
+  const testSerialAPISupport = useCallback(async (): Promise<{ supported: boolean; message: string }> => {
+    return await printerService.testSerialAPISupport();
+  }, []);
+
   // Update status periodically
   useEffect(() => {
     updateConnectedPrinters();
@@ -118,6 +124,7 @@ export function usePrinter(): UsePrinterReturn {
     disconnectPrinter,
     print,
     isPrinterConnected,
-    getPrinter
+    getPrinter,
+    testSerialAPISupport
   };
 }

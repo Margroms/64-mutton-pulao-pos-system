@@ -27,6 +27,9 @@ declare global {
     open(options: { baudRate: number }): Promise<void>;
     close(): Promise<void>;
     writable?: WritableStream<Uint8Array>;
+    readable?: ReadableStream<Uint8Array>;
+    addEventListener(type: string, listener: () => void): void;
+    getInfo?(): { usbVendorId?: number; usbProductId?: number };
   }
 
   interface Navigator {
@@ -43,6 +46,7 @@ declare global {
     };
   }
 }
+
 
 export interface PrinterDevice {
   id: string;
@@ -122,27 +126,60 @@ class PrinterService {
   // Cable/USB Printer Functions
   async connectCablePrinter(printerId: string, printerName: string): Promise<boolean> {
     try {
+      // Check if we're in a supported browser
       if (!('serial' in navigator)) {
-        throw new Error('Serial API not supported in this browser');
+        throw new Error('Serial API not supported in this browser. Please use Chrome or Edge.');
       }
 
-      // Request serial port access
+      // Check if we're on HTTPS (required for Serial API)
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        throw new Error('Serial API requires HTTPS. Please access the app via HTTPS.');
+      }
+
+      // Request serial port access with broader filters
       const port = await navigator.serial!.requestPort({
         filters: [
+          // Common thermal printer vendors
           { usbVendorId: 0x04b8 }, // Epson
           { usbVendorId: 0x04f9 }, // Brother
           { usbVendorId: 0x03f0 }, // HP
           { usbVendorId: 0x04e8 }, // Samsung
+          { usbVendorId: 0x0fe6 }, // Citizen
+          { usbVendorId: 0x0519 }, // Star Micronics
+          { usbVendorId: 0x04e2 }, // Bixolon
+          { usbVendorId: 0x0bda }, // Realtek (generic USB-serial)
+          { usbVendorId: 0x0403 }, // FTDI (USB-serial converters)
+          { usbVendorId: 0x067b }, // Prolific (USB-serial converters)
+          { usbVendorId: 0x1a86 }, // QinHeng Electronics (CH340/CH341)
         ]
       });
 
-      // Open the port
-      await port.open({ baudRate: 9600 });
+      // Try different baud rates for better compatibility
+      const baudRates = [9600, 115200, 38400, 19200, 4800];
+      let connected = false;
+
+      for (const baudRate of baudRates) {
+        try {
+          await port.open({ baudRate });
+          connected = true;
+          console.log(`Connected at ${baudRate} baud`);
+          break;
+        } catch (error) {
+          console.warn(`Failed to connect at ${baudRate} baud:`, error);
+          if (port.readable) {
+            await port.close();
+          }
+        }
+      }
+
+      if (!connected) {
+        throw new Error('Failed to connect to printer at any baud rate. Please check the connection and try again.');
+      }
 
       // Store connected printer
       const printer: PrinterDevice = {
         id: printerId,
-        name: printerName,
+        name: `${printerName} (${port.getInfo?.()?.usbVendorId ? `Vendor: 0x${port.getInfo().usbVendorId?.toString(16)}` : 'USB Serial'})`,
         type: 'cable',
         isConnected: true,
         device: port,
@@ -150,9 +187,27 @@ class PrinterService {
       };
 
       this.connectedPrinters.set(printerId, printer);
+      
+      // Set up port close handler
+      port.addEventListener('disconnect', () => {
+        this.disconnectPrinter(printerId);
+      });
+
       return true;
     } catch (error) {
       console.error('Cable connection error:', error);
+      
+      // Provide more helpful error messages
+      if (error instanceof Error) {
+        if (error.message.includes('No port selected')) {
+          throw new Error('No printer selected. Please select a USB printer from the list.');
+        } else if (error.message.includes('Access denied')) {
+          throw new Error('Access denied. Please allow serial port access and try again.');
+        } else if (error.message.includes('Device is already open')) {
+          throw new Error('Printer is already connected. Please disconnect first.');
+        }
+      }
+      
       throw error;
     }
   }
@@ -261,7 +316,7 @@ class PrinterService {
   private async printViaCable(printer: PrinterDevice, content: string): Promise<void> {
     const port = printer.device as SerialPort;
     if (!port.writable) {
-      throw new Error('Serial port not writable');
+      throw new Error('Serial port not writable. Please check the connection.');
     }
 
     // Convert content to bytes (ESC/POS commands)
@@ -270,8 +325,41 @@ class PrinterService {
     const writer = port.writable.getWriter();
     try {
       await writer.write(printData);
+      console.log('Print data sent via cable:', printData.length, 'bytes');
+    } catch (error) {
+      console.error('Failed to write to serial port:', error);
+      throw new Error('Failed to send print data to printer');
     } finally {
       writer.releaseLock();
+    }
+  }
+
+  // Debug function to test serial API availability
+  async testSerialAPISupport(): Promise<{ supported: boolean; message: string }> {
+    try {
+      if (!('serial' in navigator)) {
+        return {
+          supported: false,
+          message: 'Serial API not supported in this browser. Please use Chrome or Edge.'
+        };
+      }
+
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        return {
+          supported: false,
+          message: 'Serial API requires HTTPS. Please access the app via HTTPS.'
+        };
+      }
+
+      return {
+        supported: true,
+        message: 'Serial API is supported and ready to use.'
+      };
+    } catch (error) {
+      return {
+        supported: false,
+        message: `Serial API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   }
 

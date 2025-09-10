@@ -55,7 +55,8 @@ export function SettingsDashboard() {
     connectBluetoothPrinter, 
     connectCablePrinter, 
     disconnectPrinter: disconnectRealPrinter,
-    print
+    print,
+    testSerialAPISupport
   } = usePrinter();
 
   const showConnectionOptions = (printerId: string) => {
@@ -164,6 +165,15 @@ correctly.
     } catch (error) {
       console.error("Test print failed:", error);
       alert(`Failed to send test print: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const testSerialAPI = async () => {
+    try {
+      const result = await testSerialAPISupport();
+      alert(`Serial API Test: ${result.supported ? 'SUPPORTED' : 'NOT SUPPORTED'}\n\n${result.message}`);
+    } catch (error) {
+      alert(`Serial API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -377,6 +387,19 @@ correctly.
               Seed Database
             </Button>
           </div>
+          
+          <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+            <div>
+              <h3 className="font-medium">Test Serial API</h3>
+              <p className="text-sm text-gray-600">
+                Check if cable printer connection is supported
+              </p>
+            </div>
+            <Button onClick={testSerialAPI} variant="outline">
+              <Cable className="h-4 w-4 mr-2" />
+              Test Cable Support
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -403,9 +426,12 @@ correctly.
             <div className="p-3 bg-green-50 rounded border border-green-200">
               <h4 className="font-medium text-green-900 mb-2">Cable Connection:</h4>
               <ol className="list-decimal list-inside space-y-1 text-green-800">
-                <li>Connect your printer via USB or Serial cable</li>
+                <li>Connect your printer via USB cable to your computer</li>
+                <li>Make sure you're using Chrome or Edge browser</li>
+                <li>Ensure you're accessing the app via HTTPS (not HTTP)</li>
                 <li>Click &quot;Connect&quot; and select &quot;Cable&quot;</li>
-                <li>Ensure proper drivers are installed</li>
+                <li>Select your printer from the device list when prompted</li>
+                <li>Allow serial port access when the browser asks</li>
                 <li>Test the connection by printing a sample order</li>
               </ol>
             </div>
@@ -415,7 +441,10 @@ correctly.
               <ul className="list-disc list-inside space-y-1 text-yellow-800">
                 <li><strong>Bluetooth:</strong> Ensure your browser supports Web Bluetooth API (Chrome, Edge)</li>
                 <li><strong>Bluetooth:</strong> Check that the printer is in pairing mode before connecting</li>
-                <li><strong>Cable:</strong> Verify USB/Serial cable connection and drivers</li>
+                <li><strong>Cable:</strong> Use Chrome or Edge browser (Firefox/Safari not supported)</li>
+                <li><strong>Cable:</strong> Access via HTTPS (localhost or https://yourdomain.com)</li>
+                <li><strong>Cable:</strong> Check if printer appears in Windows Device Manager</li>
+                <li><strong>Cable:</strong> Try different USB ports or cables</li>
                 <li><strong>Both:</strong> Try refreshing the page if connection fails</li>
               </ul>
             </div>
@@ -456,6 +485,15 @@ correctly.
             <div className="text-xs text-gray-500 space-y-1">
               <p><strong>Bluetooth:</strong> Wireless connection, requires pairing</p>
               <p><strong>Cable:</strong> Direct USB/Serial connection</p>
+              <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-yellow-800 font-medium">Cable Connection Requirements:</p>
+                <ul className="text-yellow-700 text-xs mt-1 space-y-1">
+                  <li>• Use Chrome or Edge browser</li>
+                  <li>• Access via HTTPS (not HTTP)</li>
+                  <li>• USB printer must be connected</li>
+                  <li>• Allow serial port access when prompted</li>
+                </ul>
+              </div>
             </div>
           </div>
         </DialogContent>
