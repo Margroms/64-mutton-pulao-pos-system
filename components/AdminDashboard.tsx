@@ -447,12 +447,12 @@ Please visit again!
 
       {/* Connection Type Dialog */}
       <Dialog open={showConnectionDialog} onOpenChange={setShowConnectionDialog}>
-        <DialogContent>
+        <DialogContent aria-describedby="admin-connection-description">
           <DialogHeader>
             <DialogTitle>Choose Connection Type</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p id="admin-connection-description" className="text-sm text-gray-600">
               Select how you want to connect to the billing printer:
             </p>
             <div className="grid grid-cols-2 gap-4">

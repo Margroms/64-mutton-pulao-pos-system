@@ -783,12 +783,12 @@ class PrinterService {
         throw new Error('Failed to open print window. Please allow popups.');
       }
 
-      // Create print-friendly HTML
+      // Create print-friendly HTML with better formatting
       const printHTML = `
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Print Preview</title>
+          <title>Print Preview - ${printer.name}</title>
           <style>
             body {
               font-family: 'Courier New', monospace;
@@ -798,14 +798,54 @@ class PrinterService {
               padding: 20px;
               white-space: pre-wrap;
               background: white;
+              color: black;
             }
             @media print {
-              body { margin: 0; padding: 10px; }
+              body { 
+                margin: 0; 
+                padding: 10px; 
+                font-size: 10px;
+              }
+              @page {
+                margin: 0.5in;
+                size: 80mm auto;
+              }
+            }
+            .print-button {
+              position: fixed;
+              top: 10px;
+              right: 10px;
+              background: #007bff;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 5px;
+              cursor: pointer;
+              font-size: 14px;
+            }
+            .print-button:hover {
+              background: #0056b3;
             }
           </style>
         </head>
         <body>
-          ${content.replace(/\n/g, '<br>')}
+          <button class="print-button" onclick="window.print()">Print Now</button>
+          <div style="margin-top: 50px;">
+            ${content.replace(/\n/g, '<br>')}
+          </div>
+          <script>
+            // Auto-print after a short delay
+            setTimeout(() => {
+              window.print();
+            }, 1000);
+            
+            // Close window after printing
+            window.onafterprint = function() {
+              setTimeout(() => {
+                window.close();
+              }, 1000);
+            };
+          </script>
         </body>
         </html>
       `;
@@ -813,13 +853,14 @@ class PrinterService {
       printWindow.document.write(printHTML);
       printWindow.document.close();
 
-      // Wait for content to load, then print
-      printWindow.onload = () => {
-        setTimeout(() => {
+      // Also try to trigger print immediately
+      setTimeout(() => {
+        try {
           printWindow.print();
-          printWindow.close();
-        }, 500);
-      };
+        } catch (printError) {
+          console.warn('Auto-print failed, user can click print button:', printError);
+        }
+      }, 1500);
 
       console.log('Print preview opened for:', printer.name);
     } catch (error) {
