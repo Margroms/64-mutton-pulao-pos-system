@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { printerService, PrinterDevice, PrintJob } from './printerService';
+import { printerService, PrinterDevice } from './printerService';
 
 export interface UsePrinterReturn {
   connectedPrinters: PrinterDevice[];

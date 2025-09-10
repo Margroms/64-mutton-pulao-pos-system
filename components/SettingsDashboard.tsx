@@ -18,8 +18,7 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  Cable,
-  WifiIcon
+  Cable
   
 } from "lucide-react";
 import { useMutation } from "convex/react";
@@ -52,13 +51,11 @@ export function SettingsDashboard() {
   
   // Printer service
   const { 
-    connectedPrinters, 
     isConnecting, 
     connectBluetoothPrinter, 
     connectCablePrinter, 
     disconnectPrinter: disconnectRealPrinter,
-    print,
-    isPrinterConnected 
+    print
   } = usePrinter();
 
   const showConnectionOptions = (printerId: string) => {

@@ -204,7 +204,7 @@ class PrinterService {
       const service = await server.getPrimaryService('0000ae30-0000-1000-8000-00805f9b34fb');
       const characteristic = await service.getCharacteristic('0000ae31-0000-1000-8000-00805f9b34fb');
       await characteristic.writeValue(printData);
-    } catch (error) {
+    } catch {
       // Fallback: try generic service
       console.warn('Custom printer service not found, trying generic approach');
       // For now, we'll simulate the print

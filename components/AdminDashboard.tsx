@@ -49,7 +49,6 @@ export function AdminDashboard({ }: AdminDashboardProps) {
   
   // Printer service
   const { 
-    isConnecting, 
     connectBluetoothPrinter, 
     connectCablePrinter, 
     print,
@@ -73,9 +72,9 @@ export function AdminDashboard({ }: AdminDashboardProps) {
     setShowConnectionDialog(true);
   };
 
-  const generateBillPrintContent = (bill: any, paymentMethod: string): string => {
+  const generateBillPrintContent = (bill: { _id: string; items: Array<{ price: number; quantity: number; menuItemName: string }>; tableNumber?: number; waiterName?: string }, paymentMethod: string): string => {
     const timestamp = new Date().toLocaleString();
-    const subtotal = bill.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    const subtotal = bill.items.reduce((sum: number, item: { price: number; quantity: number }) => sum + (item.price * item.quantity), 0);
     const tax = subtotal * 0.18; // 18% GST
     const total = subtotal + tax;
 
@@ -94,7 +93,7 @@ ITEMS:
 ================================
 `;
 
-    bill.items.forEach((item: any) => {
+    bill.items.forEach((item: { quantity: number; menuItemName: string; price: number }) => {
       content += `${item.quantity}x ${item.menuItemName}\n`;
       content += `   ₹${item.price} each = ₹${item.price * item.quantity}\n\n`;
     });
