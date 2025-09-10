@@ -105,6 +105,7 @@ export interface PrinterDevice {
   device?: BluetoothDevice | SerialPort | USBDevice;
   connectionType?: 'bluetooth' | 'cable' | 'usb' | 'preview';
   claimedInterface?: number; // For USB devices
+  workingEndpoint?: number; // For USB devices - stores the endpoint that works
 }
 
 export interface PrintJob {
@@ -453,6 +454,32 @@ class PrinterService {
       throw new Error('Printer not connected');
     }
 
+    // For USB printers, check connection health before printing
+    if (printer.connectionType === 'usb') {
+      const isHealthy = await this.checkUSBConnectionHealth(printer);
+      if (!isHealthy) {
+        console.warn('USB printer connection is not healthy, attempting to restore');
+        // Try to restore the connection
+        try {
+          const device = printer.device as USBDevice;
+          // Try to reopen the device
+          try {
+            await device.open();
+          } catch (openError) {
+            // Device might already be open
+            console.log('Device already open or failed to reopen');
+          }
+          if (printer.claimedInterface !== undefined) {
+            await device.claimInterface(printer.claimedInterface);
+          }
+          console.log('USB connection restored successfully');
+        } catch (restoreError) {
+          console.error('Failed to restore USB connection:', restoreError);
+          throw new Error('USB printer connection lost and could not be restored');
+        }
+      }
+    }
+
     const printJob: PrintJob = {
       id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       content,
@@ -577,6 +604,39 @@ class PrinterService {
     }
   }
 
+  // Check USB connection health
+  private async checkUSBConnectionHealth(printer: PrinterDevice): Promise<boolean> {
+    const device = printer.device as USBDevice;
+    const claimedInterface = printer.claimedInterface;
+    
+    try {
+      // Check if device is still open by trying to access it
+      try {
+        // Try to access device properties to check if it's still open
+        const _ = device.vendorId; // This will throw if device is closed
+      } catch (error) {
+        console.warn('USB device is not open, attempting to reopen');
+        await device.open();
+      }
+      
+      // Check if interface is still claimed
+      if (claimedInterface !== undefined) {
+        try {
+          await device.claimInterface(claimedInterface);
+          return true;
+        } catch (error) {
+          console.warn('Interface not claimed, attempting to reclaim');
+          return false;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('USB connection health check failed:', error);
+      return false;
+    }
+  }
+
   // Print via USB
   private async printViaUSB(printer: PrinterDevice, content: string): Promise<void> {
     const device = printer.device as USBDevice;
@@ -586,21 +646,60 @@ class PrinterService {
     const printData = this.generateESCPOSCommands(content);
     
     try {
-      // Ensure the interface is still claimed
+      // Check connection health first
+      const isHealthy = await this.checkUSBConnectionHealth(printer);
+      if (!isHealthy) {
+        console.warn('USB connection is not healthy, attempting to restore');
+      }
+      // Ensure the interface is still claimed and properly configured
       if (claimedInterface !== undefined) {
         try {
+          // First try to claim the interface
           await device.claimInterface(claimedInterface);
           console.log(`Re-claimed USB interface ${claimedInterface}`);
+          
+          // Also ensure the configuration is still selected
+          try {
+            await device.selectConfiguration(1);
+            console.log('USB configuration 1 re-selected');
+          } catch (configError) {
+            console.warn('Failed to re-select configuration, but interface claimed');
+          }
         } catch (error) {
-          console.warn(`Failed to re-claim interface ${claimedInterface}, trying to find working interface`);
+          console.warn(`Failed to re-claim interface ${claimedInterface}:`, error);
+          // Try to find a working interface
+          const interfaces = [0, 1, 2, 3, 4];
+          for (const interfaceNum of interfaces) {
+            try {
+              await device.claimInterface(interfaceNum);
+              console.log(`Successfully claimed alternative interface ${interfaceNum}`);
+              // Update the printer with the new interface
+              printer.claimedInterface = interfaceNum;
+              this.connectedPrinters.set(printer.id, printer);
+              break;
+            } catch (interfaceError) {
+              console.warn(`Failed to claim interface ${interfaceNum}:`, interfaceError);
+              continue;
+            }
+          }
         }
       }
       
-      // Try different USB endpoints, but be smarter about it
-      const endpoints = [2, 1, 3, 4, 5]; // Start with endpoint 2 since it worked in your case
+      // Try different USB endpoints, prioritizing the one that worked before
+      let endpoints = [2, 1, 3, 4, 5]; // Default order
+      
+      // If we have a stored working endpoint, try it first
+      if (printer.workingEndpoint !== undefined) {
+        endpoints = [printer.workingEndpoint, ...endpoints.filter(ep => ep !== printer.workingEndpoint)];
+        console.log(`Using stored working endpoint ${printer.workingEndpoint} first`);
+      }
+      
       let success = false;
       let lastError: Error | null = null;
       let workingEndpoint = -1;
+      
+      // Add a small delay to ensure interface is fully ready
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       for (const endpoint of endpoints) {
         try {
@@ -651,6 +750,9 @@ class PrinterService {
       // Store the working endpoint for future use
       if (workingEndpoint !== -1) {
         console.log(`USB printing successful via endpoint ${workingEndpoint}`);
+        // Update the printer with the working endpoint
+        printer.workingEndpoint = workingEndpoint;
+        this.connectedPrinters.set(printer.id, printer);
       }
       
     } catch (error) {
