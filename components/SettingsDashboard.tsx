@@ -427,8 +427,8 @@ correctly.
               <h4 className="font-medium text-green-900 mb-2">Cable Connection:</h4>
               <ol className="list-decimal list-inside space-y-1 text-green-800">
                 <li>Connect your printer via USB cable to your computer</li>
-                <li>Make sure you're using Chrome or Edge browser</li>
-                <li>Ensure you're accessing the app via HTTPS (not HTTP)</li>
+                <li>Make sure you&apos;re using Chrome or Edge browser</li>
+                <li>Ensure you&apos;re accessing the app via HTTPS (not HTTP)</li>
                 <li>Click &quot;Connect&quot; and select &quot;Cable&quot;</li>
                 <li>Select your printer from the device list when prompted</li>
                 <li>Allow serial port access when the browser asks</li>
