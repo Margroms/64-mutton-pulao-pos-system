@@ -104,6 +104,7 @@ export interface PrinterDevice {
   isConnected: boolean;
   device?: BluetoothDevice | SerialPort | USBDevice;
   connectionType?: 'bluetooth' | 'cable' | 'usb' | 'preview';
+  claimedInterface?: number; // For USB devices
 }
 
 export interface PrintJob {
@@ -258,15 +259,15 @@ class PrinterService {
         throw new Error('Failed to select any USB configuration');
       }
       
-      // Try different interfaces
+      // Try different interfaces and store the successful one
       const interfaces = [0, 1, 2, 3, 4];
-      let interfaceSuccess = false;
+      let claimedInterface = -1;
       
       for (const interfaceNum of interfaces) {
         try {
           await device.claimInterface(interfaceNum);
           console.log(`USB interface ${interfaceNum} claimed successfully`);
-          interfaceSuccess = true;
+          claimedInterface = interfaceNum;
           break;
         } catch (error) {
           console.warn(`Failed to claim USB interface ${interfaceNum}:`, error);
@@ -274,18 +275,19 @@ class PrinterService {
         }
       }
       
-      if (!interfaceSuccess) {
+      if (claimedInterface === -1) {
         throw new Error('Failed to claim any USB interface');
       }
 
-      // Store connected printer
+      // Store connected printer with interface info
       const printer: PrinterDevice = {
         id: printerId,
         name: `${printerName} (${device.productName || `Vendor: 0x${device.vendorId.toString(16)}`})`,
         type: 'usb',
         isConnected: true,
         device: device,
-        connectionType: 'usb'
+        connectionType: 'usb',
+        claimedInterface: claimedInterface
       };
 
       this.connectedPrinters.set(printerId, printer);
@@ -424,6 +426,19 @@ class PrinterService {
       } else if (printer.connectionType === 'cable' && printer.device) {
         const serialPort = printer.device as SerialPort;
         serialPort.close();
+      } else if (printer.connectionType === 'usb' && printer.device) {
+        const usbDevice = printer.device as USBDevice;
+        try {
+          // Release the claimed interface before closing
+          if (printer.claimedInterface !== undefined) {
+            usbDevice.releaseInterface(printer.claimedInterface);
+            console.log(`Released USB interface ${printer.claimedInterface}`);
+          }
+          usbDevice.close();
+          console.log('USB device closed successfully');
+        } catch (error) {
+          console.warn('Error closing USB device:', error);
+        }
       }
       
       printer.isConnected = false;
@@ -565,15 +580,27 @@ class PrinterService {
   // Print via USB
   private async printViaUSB(printer: PrinterDevice, content: string): Promise<void> {
     const device = printer.device as USBDevice;
+    const claimedInterface = printer.claimedInterface;
     
     // Convert content to bytes (ESC/POS commands)
     const printData = this.generateESCPOSCommands(content);
     
     try {
-      // Try different USB endpoints and transfer methods
-      const endpoints = [1, 2, 3, 4, 5]; // Common bulk out endpoints
+      // Ensure the interface is still claimed
+      if (claimedInterface !== undefined) {
+        try {
+          await device.claimInterface(claimedInterface);
+          console.log(`Re-claimed USB interface ${claimedInterface}`);
+        } catch (error) {
+          console.warn(`Failed to re-claim interface ${claimedInterface}, trying to find working interface`);
+        }
+      }
+      
+      // Try different USB endpoints, but be smarter about it
+      const endpoints = [2, 1, 3, 4, 5]; // Start with endpoint 2 since it worked in your case
       let success = false;
       let lastError: Error | null = null;
+      let workingEndpoint = -1;
       
       for (const endpoint of endpoints) {
         try {
@@ -585,6 +612,7 @@ class PrinterService {
           const result = await device.transferOut(endpoint, buffer);
           console.log(`Print data sent via USB endpoint ${endpoint}:`, result.bytesWritten, 'bytes');
           success = true;
+          workingEndpoint = endpoint;
           break;
         } catch (error) {
           console.warn(`Failed to send data to USB endpoint ${endpoint}:`, error);
@@ -594,22 +622,23 @@ class PrinterService {
       }
       
       if (!success) {
-        // If all endpoints failed, try alternative approach
+        // If all endpoints failed, try chunked approach with the most likely endpoint
         try {
-          // Some printers might need the data in chunks
           const chunkSize = 64; // Common USB packet size
+          const preferredEndpoint = 2; // Use endpoint 2 since it worked before
+          
           for (let i = 0; i < printData.length; i += chunkSize) {
             const chunk = printData.slice(i, i + chunkSize);
             const buffer = new ArrayBuffer(chunk.length);
             const view = new Uint8Array(buffer);
             view.set(chunk);
             
-            // Try endpoint 1 with chunked data
-            await device.transferOut(1, buffer);
-            console.log(`Sent USB chunk ${i}-${i + chunk.length} bytes`);
+            await device.transferOut(preferredEndpoint, buffer);
+            console.log(`Sent USB chunk ${i}-${i + chunk.length} bytes via endpoint ${preferredEndpoint}`);
           }
           console.log('Print data sent via USB in chunks');
           success = true;
+          workingEndpoint = preferredEndpoint;
         } catch (chunkError) {
           console.error('Chunked USB transfer also failed:', chunkError);
         }
@@ -617,6 +646,11 @@ class PrinterService {
       
       if (!success) {
         throw lastError || new Error('All USB transfer methods failed');
+      }
+      
+      // Store the working endpoint for future use
+      if (workingEndpoint !== -1) {
+        console.log(`USB printing successful via endpoint ${workingEndpoint}`);
       }
       
     } catch (error) {
