@@ -58,7 +58,8 @@ export function SettingsDashboard() {
     connectPreviewPrinter,
     disconnectPrinter: disconnectRealPrinter,
     print,
-    testSerialAPISupport
+    testSerialAPISupport,
+    testUSBAPISupport
   } = usePrinter();
 
   const showConnectionOptions = (printerId: string) => {
@@ -180,6 +181,15 @@ correctly.
       alert(`Serial API Test: ${result.supported ? 'SUPPORTED' : 'NOT SUPPORTED'}\n\n${result.message}`);
     } catch (error) {
       alert(`Serial API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const testUSBAPI = async () => {
+    try {
+      const result = await testUSBAPISupport();
+      alert(`USB API Test: ${result.supported ? 'SUPPORTED' : 'NOT SUPPORTED'}\n\n${result.message}`);
+    } catch (error) {
+      alert(`USB API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -401,10 +411,16 @@ correctly.
                 Check if cable printer connection is supported
               </p>
             </div>
-            <Button onClick={testSerialAPI} variant="outline">
-              <Cable className="h-4 w-4 mr-2" />
-              Test Cable Support
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={testSerialAPI} variant="outline">
+                <Cable className="h-4 w-4 mr-2" />
+                Test Serial Support
+              </Button>
+              <Button onClick={testUSBAPI} variant="outline">
+                <Cable className="h-4 w-4 mr-2" />
+                Test USB Support
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

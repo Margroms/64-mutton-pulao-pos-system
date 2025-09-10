@@ -238,11 +238,45 @@ class PrinterService {
       // Open the device
       await device.open();
       
-      // Select configuration (usually 1)
-      await device.selectConfiguration(1);
+      // Try different configurations
+      const configurations = [1, 2, 3, 4, 5];
+      let configSuccess = false;
       
-      // Claim interface (usually 0)
-      await device.claimInterface(0);
+      for (const config of configurations) {
+        try {
+          await device.selectConfiguration(config);
+          console.log(`USB configuration ${config} selected successfully`);
+          configSuccess = true;
+          break;
+        } catch (error) {
+          console.warn(`Failed to select USB configuration ${config}:`, error);
+          continue;
+        }
+      }
+      
+      if (!configSuccess) {
+        throw new Error('Failed to select any USB configuration');
+      }
+      
+      // Try different interfaces
+      const interfaces = [0, 1, 2, 3, 4];
+      let interfaceSuccess = false;
+      
+      for (const interfaceNum of interfaces) {
+        try {
+          await device.claimInterface(interfaceNum);
+          console.log(`USB interface ${interfaceNum} claimed successfully`);
+          interfaceSuccess = true;
+          break;
+        } catch (error) {
+          console.warn(`Failed to claim USB interface ${interfaceNum}:`, error);
+          continue;
+        }
+      }
+      
+      if (!interfaceSuccess) {
+        throw new Error('Failed to claim any USB interface');
+      }
 
       // Store connected printer
       const printer: PrinterDevice = {
@@ -536,17 +570,71 @@ class PrinterService {
     const printData = this.generateESCPOSCommands(content);
     
     try {
-      // Send data to USB device (endpoint 1 is usually for bulk out)
-      // Create a new ArrayBuffer from the Uint8Array
-      const buffer = new ArrayBuffer(printData.length);
-      const view = new Uint8Array(buffer);
-      view.set(printData);
+      // Try different USB endpoints and transfer methods
+      const endpoints = [1, 2, 3, 4, 5]; // Common bulk out endpoints
+      let success = false;
+      let lastError: Error | null = null;
       
-      const result = await device.transferOut(1, buffer);
-      console.log('Print data sent via USB:', result.bytesWritten, 'bytes');
+      for (const endpoint of endpoints) {
+        try {
+          // Create a new ArrayBuffer from the Uint8Array
+          const buffer = new ArrayBuffer(printData.length);
+          const view = new Uint8Array(buffer);
+          view.set(printData);
+          
+          const result = await device.transferOut(endpoint, buffer);
+          console.log(`Print data sent via USB endpoint ${endpoint}:`, result.bytesWritten, 'bytes');
+          success = true;
+          break;
+        } catch (error) {
+          console.warn(`Failed to send data to USB endpoint ${endpoint}:`, error);
+          lastError = error instanceof Error ? error : new Error('Unknown USB transfer error');
+          continue;
+        }
+      }
+      
+      if (!success) {
+        // If all endpoints failed, try alternative approach
+        try {
+          // Some printers might need the data in chunks
+          const chunkSize = 64; // Common USB packet size
+          for (let i = 0; i < printData.length; i += chunkSize) {
+            const chunk = printData.slice(i, i + chunkSize);
+            const buffer = new ArrayBuffer(chunk.length);
+            const view = new Uint8Array(buffer);
+            view.set(chunk);
+            
+            // Try endpoint 1 with chunked data
+            await device.transferOut(1, buffer);
+            console.log(`Sent USB chunk ${i}-${i + chunk.length} bytes`);
+          }
+          console.log('Print data sent via USB in chunks');
+          success = true;
+        } catch (chunkError) {
+          console.error('Chunked USB transfer also failed:', chunkError);
+        }
+      }
+      
+      if (!success) {
+        throw lastError || new Error('All USB transfer methods failed');
+      }
+      
     } catch (error) {
       console.error('Failed to write to USB device:', error);
-      throw new Error('Failed to send print data to USB printer');
+      
+      // Offer fallback to preview mode
+      const fallback = confirm(
+        `USB printing failed: ${error instanceof Error ? error.message : 'Unknown error'}\n\n` +
+        'Would you like to open a print preview instead? This will allow you to print using your system printer.'
+      );
+      
+      if (fallback) {
+        console.log('Falling back to preview mode for USB printer');
+        await this.printViaPreview(printer, content);
+        return;
+      }
+      
+      throw new Error(`Failed to send print data to USB printer: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -601,6 +689,35 @@ class PrinterService {
     } catch (error) {
       console.error('Failed to open print preview:', error);
       throw new Error('Failed to open print preview');
+    }
+  }
+
+  // Debug function to test USB API availability
+  async testUSBAPISupport(): Promise<{ supported: boolean; message: string }> {
+    try {
+      if (!('usb' in navigator)) {
+        return {
+          supported: false,
+          message: 'WebUSB API not supported in this browser. Please use Chrome or Edge.'
+        };
+      }
+
+      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        return {
+          supported: false,
+          message: 'WebUSB API requires HTTPS. Please access the app via HTTPS.'
+        };
+      }
+
+      return {
+        supported: true,
+        message: 'WebUSB API is supported and ready to use.'
+      };
+    } catch (error) {
+      return {
+        supported: false,
+        message: `WebUSB API test failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   }
 
